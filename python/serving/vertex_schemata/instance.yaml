@@ -1,0 +1,222 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+title: MedSiglipRequestInstance
+type: object
+additionalProperties: false
+properties:
+  image:
+    type: object
+    description: >
+      An image query. Image data can be provided as raw bytes using 'input_bytes', by referencing
+      a DICOM SOP Instance using `dicomweb_uri`, `gcs_uri` to reference a file on Google
+      Cloud Storage (GCS) or by providing a URL to a public web server using 'image_url'. When
+      referencing a DICOMWeb store or GCS, you may need to also provide `access_credential`; read
+      more in the field description.
+
+      For large digital pathology images:
+      (1) You can optionally specify a list of rectangular regions of interest using
+      `patch_coordinates_list`. When provided, the model will individually encode each specified
+      patch into a separate embedding. Otherwise, a single embedding for the entire image will be
+      generated.
+      (2) For OpenSlide images stored on GCS, you can specify a specific layer using
+      `openslide_pyramid_level`.
+    additionalProperties: false
+    properties:
+      dicomweb_uri:
+        type: string
+        pattern: ^https://.+/studies/[0-9\.]{1,64}/series/[0-9\.]{1,64}/instances/[0-9\.]{1,64}$
+        description: >
+          The URI to a DICOM SOP Instance hosted on a DICOMweb Store. The URI format is:
+          https://{DICOMWEB-STORE-URI}/studies/{STUDY-UID}/series/{SERIES-UID}/instances/{INSTANCE-UID}
+      gcs_uri:
+        type: string
+        pattern: ^gs://[^/]+(/[^/]+)*/[^/]+\.[^/]+$
+        description: >
+          The URI to an image file located in a Google Cloud Storage (GCS) bucket. The URI
+          format is: gs://{BUCKET-NAME}/{OPTIONAL-FOLDER-HIERARCHY}/{FILE-NAME}.{FILE-TYPE}
+      input_bytes:
+        type: string
+        format: byte
+        description: >
+          The image data as a base64-encoded string. Refer to the API specification for details.
+      image_url:
+        type: string
+        pattern: ^https?://.+$
+        description: >
+          The URL of an file hosted on a public web server.
+      patch_coordinates_list:
+        type: array
+        minItems: 1
+        description: >
+          An optional array of coordinates defining rectangular regions of interest within
+          the image. If provided, the model will individually encode each specified patch.
+          Otherwise, a single encoding for the entire image will be generated. Note: only some
+          image types (e.g. pathology slides) support patch coordinates.
+          Refer to the API specification for details.
+        items:
+          $ref: '#/components/patch_coordinates'
+      openslide_pyramid_level:
+        $ref: '#/components/openslide_pyramid_level'
+      access_credential:
+        type: string
+        pattern: ^(application_default|[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+)$
+        description: >
+          Credentials for accessing the input data when it's not directly included in
+          'input_bytes' and is not publicly accessible. Use a standard bearer token or set
+          to 'application_default' for fallback the server credentials; read more at
+          https://cloud.google.com/docs/authentication/application-default-credentials
+  text:
+    type: string
+    description: A text query.
+  extensions:
+    type: object
+    description: >
+      An optional dictionary for flexible communication between the client and server.
+      Consult the API specification on supported keys and their purposes.
+    minProperties: 1
+    properties:
+      key:
+        type: string
+        description: A unique identifier for the extension.
+      value:
+        type: object
+        description: >
+          The value associated with the extension, represented as an embedded JSON object.
+        additionalProperties: true
+oneOf: # The request must match exactly one of the following patterns:
+  - required:
+      - image
+    properties:
+      text: false # Disallow both image and text
+      image:
+        oneOf:
+          - required:
+            - dicomweb_uri
+            # Disallow gcs_uri, input_bytes, image_url, and openslide_pyramid_level
+            properties:
+              gcs_uri: false
+              image_url: false
+              input_bytes: false
+              openslide_pyramid_level: false
+          - required:
+            - gcs_uri
+            # Disallow dicomweb_uri, image_url, and input_bytes
+            properties:
+              dicomweb_uri: false
+              image_url: false
+              input_bytes: false
+          - required:
+            - image_url
+            # Disallow dicomweb_uri, image_url, and input_bytes
+            properties:
+              dicomweb_uri: false
+              gcs_uri: false
+              input_bytes: false
+          - required:
+            - input_bytes
+            # Disallow dicomweb_uri, gcs_uri, image_url, openslide_pyramid_level, and access_credential
+            properties:
+              gcs_uri: false
+              dicomweb_uri: false
+              image_url: false
+              openslide_pyramid_level: false
+              access_credential: false
+  - required:
+      - text
+    properties:
+      image: false # Disallow both image and text
+
+components:
+  patch_coordinates:
+    type: object
+    additionalProperties: false
+    properties:
+      x_origin:
+        type: integer
+        format: int64
+        minimum: 0
+        description: >
+          The x-coordinate of the top-left corner of the rectangular patch.
+      y_origin:
+        type: integer
+        format: int64
+        minimum: 0
+        description: >
+          The y-coordinate of the top-left corner of the rectangular patch.
+      width:
+        type: integer
+        format: int64
+        minimum: 1
+        description: >
+          The width of the rectangular patch, extending to the right from 'x_origin'.
+          Note that if the underlying model does not support custom patch sizes, this
+          value will be disregarded. Refer to the API specification for details on the
+          default patch size and whether custom sizes are supported.
+      height:
+        type: integer
+        format: int64
+        minimum: 1
+        description: >
+          The height of the rectangular patch, extending downwards from 'y_origin'.
+          Note that if the underlying model does not support custom patch sizes, this
+          value will be disregarded. Refer to the API specification for details on the
+          default patch size and whether custom sizes are supported.
+    required:
+      - x_origin
+      - y_origin
+
+  openslide_pyramid_level:
+    type: object
+    description: >
+      Applicable to Pathlogy images only. Parameters for selecting a specific layer from
+      a multi dimensional OpenSlide image; refer to https://openslide.org/ for more details.
+    additionalProperties: false
+    properties:
+      index:
+        type: integer
+        format: int32
+        description: >
+          The zero-based index of the desired layer (allows both positive and
+          negative indexing, e.g., -1 for the last layer). Mutually exclusive with an dimention
+          identifiers ('width' and 'height').
+      width:
+        type: integer
+        format: int32
+        minimum: 1
+        description: >
+          The width of the desired dimension; has to be paired with 'height'. Mutually exclusive
+          with 'index'.
+      height:
+        type: integer
+        format: int32
+        minimum: 1
+        description: >
+          The height of the desired dimension; has to be paired with 'width'. Mutually exclusive
+          with 'index'.
+        required:
+          - width
+          - height
+    # An image locator must specify either an index or a pair of width and height:
+    oneOf:
+      - required:
+        - index
+        properties:
+          width: false
+          height: false
+      - required:
+        - width
+        - height
+        properties:
+          index: false

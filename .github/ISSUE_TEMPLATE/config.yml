@@ -1,0 +1,13 @@
+# Allow users to create issues that don't follow the templates since they don't cover all use cases
+blank_issues_enabled: true
+
+# Redirect users to other channels for general support or security issues
+contact_links:
+  - name: Community Support
+    url: https://github.com/google-health/$REPO_NAME/discussions
+    about: Please ask and answer questions here.
+  - name: Security Bug Reporting
+    url: https://g.co/vulnz
+    about: >
+      To report a security issue, please use https://g.co/vulnz. The Google Security Team will
+      respond within 5 working days of your report on https://g.co/vulnz.
