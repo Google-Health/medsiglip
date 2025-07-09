@@ -90,14 +90,10 @@ _LOCAL_FILE_HANDLERS = [
 _GCS_DOWNLOAD_THREAD_COUNT = int(2)
 
 
-_siglip_image_processor: Optional[
-    siglip.SiglipImageProcessor
-] = None
+_siglip_image_processor: Optional[siglip.SiglipImageProcessor] = None
 
 
-def _get_siglip_image_processor() -> (
-    siglip.SiglipImageProcessor
-):
+def _get_siglip_image_processor() -> siglip.SiglipImageProcessor:
   """Returns a SiglipImageProcessor for the endpoint."""
   # TODO: b/414473350 - Change from flags to config file init. Model parameters
   # likely very simiar to huggingface defaults with changes for modelinput size.
@@ -122,10 +118,8 @@ _siglip_tokenizer: Optional[siglip.SiglipTokenizer] = None
 def _run_siglip_tokenizer(text: str, truncation: bool) -> Mapping[str, Any]:
   global _siglip_tokenizer
   if _siglip_tokenizer is None:
-    _siglip_tokenizer = (
-        siglip.SiglipTokenizer.from_pretrained(
-            config_utils.config_directory()
-        )
+    _siglip_tokenizer = siglip.SiglipTokenizer.from_pretrained(
+        config_utils.config_directory()
     )
   return _siglip_tokenizer(
       text,
@@ -277,14 +271,12 @@ def _parse_image_instance(
   )
   # support reading imaging from HTTP.
   if predictor_const.IMAGE_URL in instance:
-    parsed_instance = (
-        http_image_data_accessor_definition.json_to_http_image(
-            auth,
-            instance,
-            config.endpoint_input_width,
-            config.endpoint_input_height,
-            require_patch_dim_match_default_dim=False,
-        )
+    parsed_instance = http_image_data_accessor_definition.json_to_http_image(
+        auth,
+        instance,
+        config.endpoint_input_width,
+        config.endpoint_input_height,
+        require_patch_dim_match_default_dim=False,
     )
     return http_image_data_accessor.HttpImageData(
         parsed_instance,
@@ -466,6 +458,20 @@ class _InputTextIter(_InputIter[str]):
     return _tokenize_text(input_data)
 
 
+def _zero_pad_image_to_square(norm_img: np.ndarray) -> np.ndarray:
+  """Pads image with zeros to be dimensionally square."""
+  height, width = norm_img.shape[:2]
+  if height < width:
+    dh = width - height
+    half_dh = dh // 2
+    return np.pad(norm_img, ((half_dh, dh - half_dh), (0, 0), (0, 0)))
+  elif width < height:
+    dw = height - width
+    half_dw = dw // 2
+    return np.pad(norm_img, ((0, 0), (half_dw, dw - half_dw), (0, 0)))
+  return norm_img
+
+
 class _InputImageIter(_InputIter[np.ndarray]):
   """Pre-process image input data."""
 
@@ -482,6 +488,11 @@ class _InputImageIter(_InputIter[np.ndarray]):
     elif norm_img.shape[-1] == 4 and norm_img.ndim == 3:
       # if RGBA image remove alpha channel.
       norm_img = norm_img[..., :3]
+
+    # method performed in training
+    # pad image with zeros to be dimensionally square
+    norm_img = _zero_pad_image_to_square(norm_img)
+
     return _get_siglip_image_processor().preprocess(
         [norm_img],
         data_format='channels_first',

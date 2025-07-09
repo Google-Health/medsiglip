@@ -232,7 +232,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                     'model_temperature': 1.0,
                     'model_bias': 0.0,
                     'input_type': 'image',
-                    'embedding': [0.9107, 0.8865, 0.9082],
+                    'embedding': [0.2801, 0.2639, 0.2785],
                 },
                 {
                     'model_temperature': 1.0,
@@ -471,7 +471,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'model_temperature': 1.0,
                       'model_bias': 0.0,
                       'input_type': 'image',
-                      'embedding': [0.6259, 0.5103, 0.6870],
+                      'embedding': [-0.0118, -0.082, 0.0254],
                   },
               ]
           },
@@ -530,7 +530,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'model_temperature': 1.0,
                       'model_bias': 0.0,
                       'input_type': 'image',
-                      'embedding': [0.6259, 0.5103, 0.6870],
+                      'embedding': [-0.0118, -0.082, 0.0254],
                   },
               ]
           },
@@ -579,7 +579,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'model_temperature': 1.0,
                       'model_bias': 0.0,
                       'input_type': 'image',
-                      'embedding': [0.6259, 0.5103, 0.6870],
+                      'embedding': [-0.0118, -0.082, 0.0254],
                   },
                   {
                       'model_temperature': 1.0,
@@ -750,7 +750,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
           _round_embeddings(result, 4),
           {
               'predictions': [{
-                  'embedding': [0.9107, 0.8865, 0.9082],
+                  'embedding': [0.2801, 0.2639, 0.2785],
                   'input_type': 'image',
                   'model_temperature': 1.0,
                   'model_bias': 0.0,
@@ -798,7 +798,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
         _round_embeddings(result, 4),
         {
             'predictions': [{
-                'embedding': [0.9107, 0.8865, 0.9082],
+                'embedding': [0.2801, 0.2639, 0.2785],
                 'input_type': 'image',
                 'model_temperature': 1.0,
                 'model_bias': 0.0,
@@ -844,13 +844,51 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
           _round_embeddings(result, 4),
           {
               'predictions': [{
-                  'embedding': [0.9107, 0.8865, 0.9082],
+                  'embedding': [0.2801, 0.2639, 0.2785],
                   'input_type': 'image',
                   'model_temperature': 1.0,
                   'model_bias': 0.0,
               }]
           },
       )
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='square_image',
+          img=np.ones((1, 1, 3), dtype=np.uint8),
+          expected=np.ones((1, 1, 3), dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='pad_height_one',
+          img=np.ones((1, 2, 1), dtype=np.uint8),
+          expected=np.asarray([[[1], [1]], [[0], [0]]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='pad_width_one',
+          img=np.ones((2, 1, 1), dtype=np.uint8),
+          expected=np.asarray([[[1], [0]], [[1], [0]]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='pad_height_two',
+          img=np.ones((1, 3, 1), dtype=np.uint8),
+          expected=np.asarray(
+              [[[0], [0], [0]], [[1], [1], [1]], [[0], [0], [0]]],
+              dtype=np.uint8,
+          ),
+      ),
+      dict(
+          testcase_name='pad_width_two',
+          img=np.ones((3, 1, 1), dtype=np.uint8),
+          expected=np.asarray(
+              [[[0], [1], [0]], [[0], [1], [0]], [[0], [1], [0]]],
+              dtype=np.uint8,
+          ),
+      ),
+  ])
+  def test_zero_pad_image_to_square(self, img, expected):
+    np.testing.assert_array_equal(
+        predictor._zero_pad_image_to_square(img), expected
+    )
 
 
 if __name__ == '__main__':
