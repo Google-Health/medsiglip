@@ -27,7 +27,7 @@ is recommended.
     [implementation](./python/serving) of the container that you can deploy to
     Vertex AI.
 
-*   Visit the model on [Hugging Face](https://huggingface.co/google/medsiglip)
+*   Visit the model on [Hugging Face](https://huggingface.co/google/medsiglip-448)
     or
     [Model Garden](https://console.cloud.google.com/vertex-ai/publishers/google/model-garden/medsiglip).
 
