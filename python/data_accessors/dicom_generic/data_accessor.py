@@ -34,16 +34,17 @@ from data_accessors.utils import patch_coordinate as patch_coordinate_module
 
 
 # Transfer Syntax UID for uncompressed little endian.
-_UNCOMPRESSED_LITTLE_ENDIAN_TRANSFER_SYNTAX = (
-    'application/dicom; transfer-syntax=1.2.840.10008.1.2.1'
-)
+_UNCOMPRESSED_LITTLE_ENDIAN_TRANSFER_SYNTAX = '1.2.840.10008.1.2.1'
 
 
 def _can_decode_transfer_syntax(
     instance: data_accessor_definition.DicomGenericImage,
 ):
+  transfer_syntax_uid = instance.dicom_instances_metadata[0].transfer_syntax_uid
+  if transfer_syntax_uid == _UNCOMPRESSED_LITTLE_ENDIAN_TRANSFER_SYNTAX:
+    return True
   return dicom_frame_decoder.can_decompress_dicom_transfer_syntax(
-      instance.dicom_instances_metadata[0].transfer_syntax_uid
+      transfer_syntax_uid
   )
 
 
