@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import io
+import nntplib
 import os
 from typing import Any, Dict, List
 
@@ -27,7 +28,9 @@ from absl.testing import parameterized
 from data_processing import image_utils
 
 
-_TEST_DATA = 'python/data_processing/testdata'
+_TEST_DATA = (
+    'python/data_processing/testdata'
+)
 PIXEL_ERROR_MARGIN = 0.0005
 
 # Test image suffixes (16-bit).
@@ -57,7 +60,7 @@ def _get_pixel_stats(encoded_string: bytes) -> Dict[str, Any]:
   stats = {
       'min': np.min(npdecoded_array),
       'max': np.max(npdecoded_array),
-      'ave': np.average(npdecoded_array)
+      'ave': np.average(npdecoded_array),
   }
   return stats
 
@@ -76,7 +79,11 @@ class TestWindow(parameterized.TestCase):
     window_center = 2048
     window_width = 4096
     actual_array = image_utils.window(
-        np.array([input_value], dtype=np.uint16), window_center, window_width)
+        np.array([input_value], dtype=np.uint16),
+        window_center,
+        window_width,
+        np.uint16,
+    )
     self.assertEqual(actual_array[0], expected_value)
 
   @parameterized.named_parameters(
@@ -92,7 +99,11 @@ class TestWindow(parameterized.TestCase):
     window_center = 2048
     window_width = 4
     actual_array = image_utils.window(
-        np.array([input_value], dtype=np.uint16), window_center, window_width)
+        np.array([input_value], dtype=np.uint16),
+        window_center,
+        window_width,
+        np.uint16,
+    )
     self.assertEqual(actual_array[0], expected_value)
 
 
@@ -105,8 +116,13 @@ class TestShiftValues(parameterized.TestCase):
       ('Signed 16', [3, 4, 5000], [0, 1, 4997], np.int16, np.uint16),
       ('Signed 8', [-128, 6, 7, 127], [0, 134, 135, 255], np.int8, np.uint8),
   )
-  def testSuccess(self, input_list: List[int], expected_list: List[int],
-                  dtype: Any, expected_dtype: Any):
+  def testSuccess(
+      self,
+      input_list: List[int],
+      expected_list: List[int],
+      dtype: Any,
+      expected_dtype: Any,
+  ):
     """Tests shift behavior."""
     actual = image_utils.shift_to_unsigned(np.array(input_list, dtype=dtype))
     self.assertEqual(actual.tolist(), expected_list)
@@ -132,7 +148,8 @@ class TestRescaleDynamicRange(parameterized.TestCase):
   def testSuccess(self, input_list: List[int], expected_list: List[int]):
     """Locks down expected linear interpolation behavior."""
     actual_list = image_utils.rescale_dynamic_range(
-        np.array(input_list, dtype=np.uint16)).tolist()
+        np.array(input_list, dtype=np.uint16)
+    ).tolist()
     self.assertEqual(actual_list, expected_list)
 
   @parameterized.parameters(
@@ -156,14 +173,16 @@ class TestEncodePNG(parameterized.TestCase):
       numpy_array_file_name = 'wado_mock_wl16_instance%s.npy' % suffix
       logging.info('Loading: %s', numpy_array_file_name)
       numpy_array_file = open(
-          os.path.join(_TEST_DATA, numpy_array_file_name), 'rb')
+          os.path.join(_TEST_DATA, numpy_array_file_name), 'rb'
+      )
       numpy_array_dict[suffix] = np.load(numpy_array_file)
       numpy_array_file.close()
 
       png_file_name = 'wado_mock_png_instance%s' % suffix
       logging.info('Loading: %s', png_file_name)
       with open(
-          os.path.join(_TEST_DATA, png_file_name), 'rb') as f:
+          os.path.join(_TEST_DATA, png_file_name), 'rb'
+      ) as f:
         png_bytes_dict[suffix] = f.read()
 
     self._numpy_array_dict = immutabledict.immutabledict(numpy_array_dict)
@@ -172,8 +191,9 @@ class TestEncodePNG(parameterized.TestCase):
   @parameterized.parameters((np.uint8,), (np.uint16,))
   def testSuccess_Range(self, dtype):
     """Tests image (w, h) = (4, 2) with maximum range of values for uint*."""
-    test_array = np.array([[0, 1, 2, 3], [np.iinfo(dtype).max, 12000, 100,
-                                          150]]).astype(dtype)
+    test_array = np.array(
+        [[0, 1, 2, 3], [np.iinfo(dtype).max, 12000, 100, 150]]
+    ).astype(dtype)
     png_text = image_utils.encode_png(test_array)
     result_array = np.array(Image.open(io.BytesIO(png_text)))
     np.testing.assert_array_equal(test_array, result_array)
@@ -200,22 +220,26 @@ class TestEncodePNG(parameterized.TestCase):
     logging.info('Suffix: %s', suffix)
     logging.info('Canonical pixels: %s', str(canonical_pixel_stats))
     logging.info('Instance pixels: %s', str(test_pixel_stats))
-    logging.info('Diff in average pixel values: %f',
-                 test_pixel_stats['ave'] - canonical_pixel_stats['ave'])
+    logging.info(
+        'Diff in average pixel values: %f',
+        test_pixel_stats['ave'] - canonical_pixel_stats['ave'],
+    )
 
     self.assertEqual(test_pixel_stats['min'], canonical_pixel_stats['min'])
     self.assertEqual(test_pixel_stats['max'], canonical_pixel_stats['max'])
     self.assertAlmostEqual(
         test_pixel_stats['ave'],
         canonical_pixel_stats['ave'],
-        delta=PIXEL_ERROR_MARGIN)
+        delta=PIXEL_ERROR_MARGIN,
+    )
 
   @parameterized.parameters(np.int32, np.uint32, np.int16, np.int8)
   def testFailure_Dtype(self, dtype):
     """Tests failure to convert to PNG for invalid image dimensions."""
     array = np.array([[0, 1], [2, 4]], dtype=dtype)
-    with self.assertRaisesRegex(ValueError,
-                                'Pixels must be either `uint8` or `uint16`.'):
+    with self.assertRaisesRegex(
+        ValueError, 'Pixels must be either `uint8` or `uint16`.'
+    ):
       image_utils.encode_png(array)
 
   def testFailure_Dimensions(self):

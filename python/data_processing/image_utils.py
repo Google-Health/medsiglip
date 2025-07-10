@@ -16,6 +16,7 @@
 """Utility functions for image processing."""
 
 import io
+from typing import Any
 
 import numpy as np
 import png
@@ -125,12 +126,16 @@ def shift_to_unsigned(image: np.ndarray) -> np.ndarray:
 
 
 def window(
-    image: np.ndarray, window_center: int, window_width: int
+    image: np.ndarray,
+    window_center: int,
+    window_width: int,
+    dtype: Any,
 ) -> np.ndarray:
   """Applies the Window operation on an integer image."""
-  iinfo = np.iinfo(image.dtype)
-  top_clip = window_center - 1 + window_width / 2
-  bottom_clip = window_center - window_width / 2
+  iinfo = np.iinfo(dtype)
+  half_window_width = window_width // 2
+  top_clip = window_center - 1 + half_window_width
+  bottom_clip = window_center - half_window_width
   return np.interp(
       image.clip(bottom_clip, top_clip),
       (bottom_clip, top_clip),

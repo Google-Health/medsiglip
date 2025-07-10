@@ -106,6 +106,7 @@ class GenericDicomHandlerTest(parameterized.TestCase):
       dcm = test_utils.create_test_dicom_instance(
           '1.2.840.10008.5.1.4.1.1.1.1', '1.1', '1.1.1', '1.1.1.1', pixeldata
       )
+      dcm.Modality = 'CR'
       dcm_path = os.path.join(temp_dir, 'test.dcm')
       dcm.save_as(dcm_path)
       with self.assertRaisesRegex(
@@ -122,6 +123,7 @@ class GenericDicomHandlerTest(parameterized.TestCase):
       dcm = test_utils.create_test_dicom_instance(
           '1.2.840.10008.5.1.4.1.1.1.1', '1.1', '1.1.1', '1.1.1.1', pixeldata
       )
+      dcm.Modality = 'DX'
       dcm_path = os.path.join(temp_dir, 'test.dcm')
       dcm.save_as(dcm_path)
       with self.assertRaisesRegex(
@@ -148,6 +150,7 @@ class GenericDicomHandlerTest(parameterized.TestCase):
       dcm = test_utils.create_test_dicom_instance(
           '1.2.840.10008.5.1.4.1.1.1.1', '1.1', '1.1.1', '1.1.1.1', pixeldata
       )
+      dcm.Modality = 'SM'
       dcm.PhotometricInterpretation = photometric_interpretation
       dcm_path = os.path.join(temp_dir, 'test.dcm')
       dcm.save_as(dcm_path)
@@ -169,6 +172,7 @@ class GenericDicomHandlerTest(parameterized.TestCase):
       dcm = test_utils.create_test_dicom_instance(
           '1.2.840.10008.5.1.4.1.1.1.1', '1.1', '1.1.1', '1.1.1.1', pixeldata
       )
+      dcm.Modality = 'GM'
       dcm.PhotometricInterpretation = 'RGB'
       dcm_path = os.path.join(temp_dir, 'test.dcm')
       del dcm[required_elements]
@@ -195,6 +199,7 @@ class GenericDicomHandlerTest(parameterized.TestCase):
       dcm = test_utils.create_test_dicom_instance(
           '1.2.840.10008.5.1.4.1.1.1.1', '1.1', '1.1.1', '1.1.1.1', pixeldata
       )
+      dcm.Modality = 'XC'
       dcm.PhotometricInterpretation = photometric_interpretation
       dcm_path = os.path.join(temp_dir, 'test.dcm')
       dcm.save_as(dcm_path)
@@ -209,6 +214,7 @@ class GenericDicomHandlerTest(parameterized.TestCase):
       dcm = test_utils.create_test_dicom_instance(
           '1.2.840.10008.5.1.4.1.1.1.1', '1.1', '1.1.1', '1.1.1.1', pixel_data
       )
+      dcm.Modality = 'SM'
       dcm.PhotometricInterpretation = 'RGB'
       dcm_path = os.path.join(temp_dir, 'test.dcm')
       dcm.save_as(dcm_path)
@@ -231,6 +237,7 @@ class GenericDicomHandlerTest(parameterized.TestCase):
       dcm = test_utils.create_test_dicom_instance(
           '1.2.840.10008.5.1.4.1.1.1.1', '1.1', '1.1.1', '1.1.1.1', pixel_data
       )
+      dcm.Modality = 'CR'
       dcm.PhotometricInterpretation = 'MONOCHROME2'
       dcm.ICCProfile = dicom_slide.get_rommrgb_icc_profile_bytes()
       dcm_path = os.path.join(temp_dir, 'test.dcm')
@@ -252,6 +259,7 @@ class GenericDicomHandlerTest(parameterized.TestCase):
       dcm = test_utils.create_test_dicom_instance(
           '1.2.840.10008.5.1.4.1.1.1.1', '1.1', '1.1.1', '1.1.1.1', pixel_data
       )
+      dcm.Modality = 'DX'
       dcm.ICCProfile = dicom_slide.get_rommrgb_icc_profile_bytes()
       dcm.PhotometricInterpretation = 'RGB'
       dcm_path = os.path.join(temp_dir, 'test.dcm')

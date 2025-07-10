@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """local handler for handling generic DICOM files."""
+import enum
 import io
 from typing import Any, Iterator, Mapping, Optional, Sequence, Union
 
@@ -60,6 +61,37 @@ _SUPPORTED_UNENCAPSULATED_PHOTOMETRIC_INTERPRETATIONS = frozenset(
 )
 
 _SUPPORTED_SAMPLES_PER_PIXEL = frozenset([1, 3])
+
+
+class _MODALITY(enum.Enum):
+  """Modality Coded Values."""
+
+  CR = 'CR'  # Computed Radiography
+  DX = 'DX'  # Digital X-Ray
+  GM = 'GM'  # General Microscopy
+  SM = 'SM'  # Slide Microscopy
+  XC = 'XC'  # External Camera
+
+
+_CXR_MODALITIES = {_MODALITY.CR.value, _MODALITY.DX.value}
+_MICROSCOPY_MODALITIES = {_MODALITY.SM.value, _MODALITY.GM.value}
+
+
+def _validate_modality_supported(dcm: pydicom.FileDataset) -> None:
+  """Validates DICOM modality is supported."""
+  try:
+    modality = dcm.Modality
+  except (AttributeError, ValueError, TypeError) as _:
+    raise data_accessor_errors.DicomError(
+        'DICOM missing modality tag metadata.'
+    )
+  if modality in _CXR_MODALITIES or modality in _MICROSCOPY_MODALITIES:
+    return
+  if modality == _MODALITY.XC.value:
+    return
+  raise data_accessor_errors.DicomError(
+      f'DICOM encodes a unsupported Modality; Modality: {modality}.'
+  )
 
 
 def validate_transfer_syntax(dcm: pydicom.FileDataset) -> None:
@@ -139,41 +171,43 @@ def _get_encapsulated_dicom_frame_bytes(ds: pydicom.FileDataset) -> bytes:
   return b''
 
 
-def _apply_radiograph_prep(
-    arr: np.ndarray, ds: pydicom.FileDataset
-) -> np.ndarray:
-  """Applies data handling from pydicom."""
-  pixel_array = pydicom.pixels.processing.apply_modality_lut(arr, ds)
-  if pixel_array.dtype == np.float64:
-    # if pixel array is altered by the LUT will be transformed to float64.
-    # https://pydicom.github.io/pydicom/dev/reference/generated/pydicom.pixels.apply_modality_lut.html
-    # cast back to the original integer dtype for windowing.
-    pixel_array = pixel_array.astype(arr.dtype)
-  if _WINDOW_WIDTH in ds and _WINDOW_CENTER in ds:
-    pixel_array = image_utils.window(
-        pixel_array, ds.WindowCenter, ds.WindowWidth
-    )
-  if ds.PhotometricInterpretation == MONOCHROME1:
-    pixel_array = np.iinfo(pixel_array.dtype).max - pixel_array
-  return pixel_array
-
-
-def _norm_single_channel_radiology_imaging(
-    image_bytes: np.ndarray, dcm: pydicom.FileDataset
-) -> np.ndarray:
-  """Window, and rescale single channel radiology imaging."""
-  image_bytes = _apply_radiograph_prep(image_bytes, dcm)
+def _rescale_cxr_dynamic_range(image_bytes: np.ndarray) -> np.ndarray:
+  """Rescales dynamic range of image bytes to make across image range."""
   try:
-    if np.dtype(image_bytes.dtype).kind != 'u':
-      image_bytes = image_utils.shift_to_unsigned(image_bytes)
     # For uint8 images, rescaling is not needed
     if image_bytes.dtype == np.uint8:
       return image_bytes
+    if np.dtype(image_bytes.dtype).kind != 'u':
+      image_bytes = image_utils.shift_to_unsigned(image_bytes)
+    # Rescaling dynamic range enables 12 bit imaging to be scaled to uint16.
+    # Also will scale signed imaging across full range.
+    # Side effect is that will make imaging relative to self.
     return image_utils.rescale_dynamic_range(image_bytes)
   except ValueError as exp:
     raise data_accessor_errors.DicomError(
         'DICOM PixelData contains has incompatible encoding.'
     ) from exp
+
+
+def _norm_cxr_imaging(arr: np.ndarray, ds: pydicom.FileDataset) -> np.ndarray:
+  """Applies data handling from pydicom."""
+  pixel_array = pydicom.pixels.processing.apply_modality_lut(arr, ds)
+  if _WINDOW_WIDTH in ds and _WINDOW_CENTER in ds:
+    # windowing will normalize imaging to uint16.
+    # with dynamic range scaled across the windowed range.
+    pixel_array = image_utils.window(
+        pixel_array, ds.WindowCenter, ds.WindowWidth, np.uint16
+    )
+  if pixel_array.dtype == np.float64:
+    # if pixel array is altered by the LUT will be transformed to float64.
+    # https://pydicom.github.io/pydicom/dev/reference/generated/pydicom.pixels.apply_modality_lut.html
+    # cast back to the original integer dtype for windowing.
+    pixel_array = pixel_array.astype(arr.dtype)
+  # Scale imaging
+  pixel_array = _rescale_cxr_dynamic_range(pixel_array)
+  if ds.PhotometricInterpretation == MONOCHROME1:
+    return np.iinfo(pixel_array.dtype).max - pixel_array
+  return pixel_array
 
 
 def validate_samples_per_pixel(dcm: pydicom.FileDataset) -> None:
@@ -254,6 +288,7 @@ def decode_dicom_image(
     patch_required_to_be_fully_in_source_image: bool,
 ) -> Iterator[np.ndarray]:
   """Decode DICOM image and return decoded image bytes."""
+  _validate_modality_supported(dcm)
   validate_transfer_syntax(dcm)
   validate_samples_per_pixel(dcm)
   _validate_number_of_frames(dcm)
@@ -301,10 +336,12 @@ def decode_dicom_image(
   decoded_image_bytes = _transform_image_to_target_icc_profile(
       decoded_image_bytes, compressed_image_bytes, dcm, target_icc_profile
   )
-  if decoded_image_bytes.ndim == 3 and decoded_image_bytes.shape[2] == 1:
-    decoded_image_bytes = _norm_single_channel_radiology_imaging(
-        decoded_image_bytes, dcm
-    )
+  if (
+      dcm.Modality in _CXR_MODALITIES
+      and decoded_image_bytes.ndim == 3
+      and decoded_image_bytes.shape[2] == 1
+  ):
+    decoded_image_bytes = _norm_cxr_imaging(decoded_image_bytes, dcm)
   if resize_image_dimensions is not None:
     decoded_image_bytes = image_dimension_utils.resize_image_dimensions(
         decoded_image_bytes, resize_image_dimensions
