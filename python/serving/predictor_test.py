@@ -156,7 +156,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_PATH) as dicom_store:
       dicom_store[_MOCK_STORE_PATH].add_instance(dcm)
       with flagsaver.flagsaver(batch_prediction=batch_prediction):
-        pred = predictor.MedSigLIP_Predictor()
+        pred = predictor.MedSiglipPredictor()
         result = pred.predict(mock_prediction_input, _mock_model_runner)
       self.assertEqual(pred.last_request_model_prediction_count, 4)
       self.assertEqual(
@@ -221,7 +221,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
         ]
     }
     with flagsaver.flagsaver(batch_prediction=batch_prediction):
-      pred = predictor.MedSigLIP_Predictor()
+      pred = predictor.MedSiglipPredictor()
       result = pred.predict(mock_prediction_input, _mock_model_runner)
     self.assertEqual(pred.last_request_model_prediction_count, 3)
     self.assertEqual(
@@ -285,7 +285,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_PATH) as dicom_store:
       dicom_store[_MOCK_STORE_PATH].add_instance(dcm)
       with flagsaver.flagsaver(batch_prediction=batch_prediction):
-        pred = predictor.MedSigLIP_Predictor()
+        pred = predictor.MedSiglipPredictor()
         result = pred.predict(mock_prediction_input, _mock_model_runner)
       self.assertEqual(pred.last_request_model_prediction_count, 4)
       self.assertEqual(
@@ -341,7 +341,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
         'instances': [{'text': 'test_text_1'}, {'text': 'test_text_2'}]
     }
     with flagsaver.flagsaver(batch_prediction=batch_prediction):
-      pred = predictor.MedSigLIP_Predictor()
+      pred = predictor.MedSiglipPredictor()
       result = pred.predict(mock_prediction_input, _mock_model_runner)
     self.assertEqual(pred.last_request_model_prediction_count, 2)
     self.assertEqual(
@@ -379,7 +379,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
         'instances': [{'text': f'{' '.join([str(i) for i in range(1000)])}'}]
     }
     with flagsaver.flagsaver(batch_prediction=batch_prediction):
-      pred = predictor.MedSigLIP_Predictor()
+      pred = predictor.MedSiglipPredictor()
       result = pred.predict(mock_prediction_input, _mock_model_runner)
     self.assertEqual(pred.last_request_model_prediction_count, 1)
     self.assertEqual(
@@ -433,7 +433,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
           ]
       }
       with flagsaver.flagsaver(batch_prediction=batch_prediction):
-        pred = predictor.MedSigLIP_Predictor()
+        pred = predictor.MedSiglipPredictor()
         result = pred.predict(mock_prediction_input, _mock_model_runner)
       self.assertEqual(pred.last_request_model_prediction_count, expected_count)
       self.assertEqual(
@@ -605,7 +605,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
     temp_dir = self.create_tempdir()
     dcm.save_as(os.path.join(temp_dir.full_path, 'test.dcm'))
     with gcs_mock.GcsMock({'earth': temp_dir}):
-      pred = predictor.MedSigLIP_Predictor()
+      pred = predictor.MedSiglipPredictor()
       results = pred.predict(mock_prediction_input, _mock_model_runner)
       self.assertEqual(_round_embeddings(results, 4), expected_result)
       self.assertEqual(pred.last_request_model_prediction_count, 3)
@@ -632,7 +632,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
     }
     with gcs_mock.GcsMock():
       with flagsaver.flagsaver(batch_prediction=batch_prediction):
-        pred = predictor.MedSigLIP_Predictor()
+        pred = predictor.MedSiglipPredictor()
         result = pred.predict(mock_prediction_input, _mock_model_runner)
       result['predictions'][0]['error']['description'] = ''
       self.assertEqual(
@@ -677,7 +677,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
   )
   @flagsaver.flagsaver(batch_prediction=True)
   def test_invalid_instance_input_format(self, mock_input):
-    pred = predictor.MedSigLIP_Predictor()
+    pred = predictor.MedSiglipPredictor()
     result = pred.predict(mock_input, _mock_model_runner)
     self.assertEqual(
         result,
@@ -709,7 +709,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
     }
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_PATH) as dicom_store:
       dicom_store[_MOCK_STORE_PATH].add_instance(dcm)
-      pred = predictor.MedSigLIP_Predictor()
+      pred = predictor.MedSiglipPredictor()
       result = pred.predict(mock_prediction_input, _mock_model_runner)
       self.assertEqual(pred.last_request_model_prediction_count, 0)
       self.assertEqual(result, {'error': 'TOO_MANY_PATCHES_ERROR'})
@@ -744,7 +744,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
       img.save(temp_png_path)
     with gcs_mock.GcsMock({'earth': temp_dir}):
       with flagsaver.flagsaver(batch_prediction=batch_prediction):
-        pred = predictor.MedSigLIP_Predictor()
+        pred = predictor.MedSiglipPredictor()
         result = pred.predict(mock_prediction_input, _mock_model_runner)
       self.assertEqual(
           _round_embeddings(result, 4),
@@ -792,7 +792,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
         ]
     }
     with flagsaver.flagsaver(batch_prediction=batch_prediction):
-      pred = predictor.MedSigLIP_Predictor()
+      pred = predictor.MedSiglipPredictor()
       result = pred.predict(mock_prediction_input, _mock_model_runner)
     self.assertEqual(
         _round_embeddings(result, 4),
@@ -838,7 +838,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
     with requests_mock.Mocker() as m:
       m.get('http://earth.com/image.jpeg', content=_read_test_jpeg())
       with flagsaver.flagsaver(batch_prediction=batch_prediction):
-        pred = predictor.MedSigLIP_Predictor()
+        pred = predictor.MedSiglipPredictor()
         result = pred.predict(mock_prediction_input, _mock_model_runner)
       self.assertEqual(
           _round_embeddings(result, 4),

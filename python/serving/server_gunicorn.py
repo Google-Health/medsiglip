@@ -59,7 +59,7 @@ def main(argv: Sequence[str]) -> None:
   # ) as f:
   #   prediction_validator = jsonschema.Draft202012Validator(yaml.safe_load(f))
   prediction_validator = None  # TODO(b/430426684): Restore validation.
-  predictor_instance = predictor.MedSigLIP_Predictor()
+  predictor_instance = predictor.MedSiglipPredictor()
   logging.info('Launching gunicorn application.')
   server_gunicorn.PredictionApplication(
       inline_prediction_executor.InlinePredictionExecutor(

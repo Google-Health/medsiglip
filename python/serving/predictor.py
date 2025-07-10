@@ -655,7 +655,7 @@ def _validate_encoder_request(
       )
 
 
-class MedSigLIP_Predictor:
+class MedSiglipPredictor:
   """Callable responsible for generating embeddings."""
 
   def __init__(self):

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""test_util for mi_siglip."""
+"""test_util for MedSiglip."""
 from data_accessors.utils import test_utils
 
 
