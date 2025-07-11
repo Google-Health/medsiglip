@@ -13,10 +13,11 @@
 # limitations under the License.
 """Tests for gcs_generic data accessor."""
 
+import contextlib
 import os
 import shutil
 import tempfile
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple
 from unittest import mock
 
 from absl.testing import absltest
@@ -32,11 +33,33 @@ from data_accessors.gcs_generic import data_accessor
 from data_accessors.gcs_generic import data_accessor_definition
 from data_accessors.local_file_handlers import generic_dicom_handler
 from data_accessors.local_file_handlers import traditional_image_handler
+from data_accessors.utils import authentication_utils
 from data_accessors.utils import test_utils
 from ez_wsi_dicomweb.test_utils.gcs_mock import gcs_mock
 
 
 _InstanceJsonKeys = data_accessor_const.InstanceJsonKeys
+_MOCK_TOKEN = 'MOCK_AUTH_TOKEN'
+
+
+def _mock_apply_credentials(
+    headers: MutableMapping[Any, Any], token: Optional[str] = None
+) -> None:
+  headers['authorization'] = 'Bearer {}'.format(token or _MOCK_TOKEN)
+
+
+def _get_mocked_credentials(
+    scopes: Optional[Sequence[str]],
+) -> Tuple[google.auth.credentials.Credentials, str]:
+  del scopes  # unused
+  credentials_mock = mock.create_autospec(
+      google.auth.credentials.Credentials, instance=True
+  )
+  type(credentials_mock).token = mock.PropertyMock(return_value=_MOCK_TOKEN)
+  type(credentials_mock).valid = mock.PropertyMock(return_value='True')
+  type(credentials_mock).expired = mock.PropertyMock(return_value='False')
+  credentials_mock.apply.side_effect = _mock_apply_credentials
+  return credentials_mock, 'fake_project'
 
 
 def _test_load_from_gcs(
@@ -368,6 +391,90 @@ class DataAccessorTest(parameterized.TestCase):
         download_worker_count=1,
     )
     self.assertLen(gcs_data_accessor, expected)
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='application_default',
+          access_credential={'access_credential': 'application_default'},
+          expected_token=_MOCK_TOKEN,
+      ),
+      dict(
+          testcase_name='token_passthrough',
+          access_credential={'access_credential': 'ABC'},
+          expected_token='ABC',
+      ),
+  )
+  @mock.patch.object(data_accessor, '_download_to_file', autospec=True)
+  @mock.patch('google.auth.default', side_effect=_get_mocked_credentials)
+  @mock.patch('google.cloud.storage.Client', autospec=True)
+  @mock.patch(
+      'google.cloud.storage.Client.create_anonymous_client', autospec=True
+  )
+  def test_gcs_dicom_image_credentials(
+      self,
+      anonymous_client_mock,
+      client_mock,
+      *_,
+      access_credential,
+      expected_token
+  ):
+    json_instance = {_InstanceJsonKeys.GCS_URI: 'gs://earth/image.dcm'}
+    json_instance.update(access_credential)
+    auth = authentication_utils.create_auth_from_instance(
+        json_instance.get('access_credential', '')
+    )
+    instance = data_accessor_definition.json_to_generic_gcs_image(
+        auth,
+        json_instance,
+        default_patch_width=256,
+        default_patch_height=256,
+        require_patch_dim_match_default_dim=False,
+    )
+    gcs_data_accessor = data_accessor.GcsGenericData(
+        instance,
+        file_handlers=[
+            traditional_image_handler.TraditionalImageHandler(),
+            generic_dicom_handler.GenericDicomHandler(),
+        ],
+        download_worker_count=1,
+    )
+    with contextlib.ExitStack() as stack:
+      gcs_data_accessor.load_data(stack)
+      client_mock.assert_called_once()
+      self.assertEqual(
+          client_mock.call_args.kwargs['credentials'].token, expected_token
+      )
+      anonymous_client_mock.assert_not_called()
+
+  @mock.patch.object(data_accessor, '_download_to_file', autospec=True)
+  @mock.patch(
+      'google.cloud.storage.Client.create_anonymous_client', autospec=True
+  )
+  def test_gcs_dicom_image_no_auth(
+      self, anonymous_client_mock, *_
+  ):
+    json_instance = {_InstanceJsonKeys.GCS_URI: 'gs://earth/image.dcm'}
+    auth = authentication_utils.create_auth_from_instance(
+        json_instance.get('access_credential', '')
+    )
+    instance = data_accessor_definition.json_to_generic_gcs_image(
+        auth,
+        json_instance,
+        default_patch_width=256,
+        default_patch_height=256,
+        require_patch_dim_match_default_dim=False,
+    )
+    gcs_data_accessor = data_accessor.GcsGenericData(
+        instance,
+        file_handlers=[
+            traditional_image_handler.TraditionalImageHandler(),
+            generic_dicom_handler.GenericDicomHandler(),
+        ],
+        download_worker_count=1,
+    )
+    with contextlib.ExitStack() as stack:
+      gcs_data_accessor.load_data(stack)
+      anonymous_client_mock.assert_called_once()
 
 
 if __name__ == '__main__':

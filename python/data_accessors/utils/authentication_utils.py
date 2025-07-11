@@ -25,9 +25,9 @@ def create_auth_from_instance(
     bearer_token: str,
 ) -> credential_factory.AbstractCredentialFactory:
   json_validation_utils.validate_str(bearer_token)
-  if bearer_token:
-    return credential_factory.TokenPassthroughCredentialFactory(bearer_token)
-  elif bearer_token == _APPLICATION_DEFAULT_BEARER_TOKEN:
+  if bearer_token == _APPLICATION_DEFAULT_BEARER_TOKEN:
     return credential_factory.DefaultCredentialFactory()
+  elif bearer_token:
+    return credential_factory.TokenPassthroughCredentialFactory(bearer_token)
   else:
     return credential_factory.NoAuthCredentialsFactory()
