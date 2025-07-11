@@ -30,6 +30,7 @@ import yaml
 
 from serving.serving_framework import inline_prediction_executor
 from serving.serving_framework import server_gunicorn
+from serving.serving_framework.triton import server_health_check
 from serving.serving_framework.triton import triton_server_model_runner
 from serving import predictor
 
@@ -47,7 +48,8 @@ def main(argv: Sequence[str]) -> None:
       'workers': 3,
       'timeout': 120,
   }
-  health_checker = None  # TODO(bramsterling): Add health check after refactor.
+  model_rest_port = int(os.environ.get('MODEL_REST_PORT'))
+  health_checker = server_health_check.TritonServerHealthCheck(model_rest_port)
   # Get schema validators.
   local_path = os.path.dirname(__file__)
   with open(
