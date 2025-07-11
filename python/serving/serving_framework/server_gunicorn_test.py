@@ -18,9 +18,6 @@ import os
 import subprocess
 from unittest import mock
 
-import requests
-import requests_mock
-
 from absl.testing import absltest
 from serving.serving_framework import server_gunicorn
 
@@ -82,54 +79,6 @@ class ServerGunicornTest(absltest.TestCase):
 
     self.assertEqual(response.status_code, http.HTTPStatus.OK)
     self.assertEqual(response.text, "ok")
-
-  @requests_mock.Mocker()
-  def test_health_route_pass_check(self, mock_requests):
-    mock_requests.register_uri(
-        "GET",
-        "http://localhost:12345/v1/models/default",
-        text="assorted_metadata",
-        status_code=http.HTTPStatus.OK,
-    )
-
-    executor = mock.create_autospec(
-        server_gunicorn.PredictionExecutor,
-        instance=True,
-    )
-
-    app = server_gunicorn.PredictionApplication(
-        executor,
-        health_check=server_gunicorn.ModelServerHealthCheck(12345, "default"),
-    ).load()
-    service = app.test_client()
-
-    response = service.get("/fake-health-route")
-
-    self.assertEqual(response.status_code, http.HTTPStatus.OK)
-    self.assertEqual(response.text, "ok")
-
-  @requests_mock.Mocker()
-  def test_health_route_fail_check(self, mock_requests):
-    mock_requests.register_uri(
-        "GET",
-        "http://localhost:12345/v1/models/default",
-        exc=requests.exceptions.ConnectionError,
-    )
-    executor = mock.create_autospec(
-        server_gunicorn.PredictionExecutor,
-        instance=True,
-    )
-
-    app = server_gunicorn.PredictionApplication(
-        executor,
-        health_check=server_gunicorn.ModelServerHealthCheck(12345, "default"),
-    ).load()
-    service = app.test_client()
-
-    response = service.get("/fake-health-route")
-
-    self.assertEqual(response.status_code, http.HTTPStatus.SERVICE_UNAVAILABLE)
-    self.assertEqual(response.text, "not ok")
 
   def test_predict_route_no_json(self):
     executor = mock.create_autospec(

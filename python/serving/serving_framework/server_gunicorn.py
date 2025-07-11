@@ -31,7 +31,6 @@ from absl import logging
 import flask
 from gunicorn.app import base as gunicorn_base
 import jsonschema
-import requests
 from typing_extensions import override
 
 
@@ -110,20 +109,12 @@ class SubprocessPredictionExecutor(PredictionExecutor):
       raise RuntimeError("Executor process output not valid json.") from e
 
 
-class ModelServerHealthCheck:
-  """Checks the health of the local model server via REST request."""
+class ModelServerHealthCheck(abc.ABC):
+  """Checks the health of the local model server."""
 
-  def __init__(self, health_check_port: int, model_name: str):
-    self._health_check_url = (
-        f"http://localhost:{health_check_port}/v1/models/{model_name}"
-    )
-
+  @abc.abstractmethod
   def check_health(self) -> bool:
-    try:
-      r = requests.get(self._health_check_url)
-      return r.status_code == http.HTTPStatus.OK.value
-    except requests.exceptions.ConnectionError:
-      return False
+    """Check the health of the local model server immediately."""
 
 
 def _create_app(
