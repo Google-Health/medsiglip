@@ -67,6 +67,21 @@ properties:
           Refer to the API specification for details.
         items:
           $ref: '#/components/patch_coordinates'
+      extensions:
+        type: object
+        description: >
+          An optional dictionary for flexible communication between the client and server.
+          Consult the API specification on supported keys and their purposes.
+        minProperties: 1
+        properties:
+          key:
+            type: string
+            description: A unique identifier for the extension.
+          value:
+            type: object
+            description: >
+              The value associated with the extension, represented as an embedded JSON object.
+            additionalProperties: true
       openslide_pyramid_level:
         $ref: '#/components/openslide_pyramid_level'
       access_credential:
@@ -80,21 +95,6 @@ properties:
   text:
     type: string
     description: A text query.
-  extensions:
-    type: object
-    description: >
-      An optional dictionary for flexible communication between the client and server.
-      Consult the API specification on supported keys and their purposes.
-    minProperties: 1
-    properties:
-      key:
-        type: string
-        description: A unique identifier for the extension.
-      value:
-        type: object
-        description: >
-          The value associated with the extension, represented as an embedded JSON object.
-        additionalProperties: true
 oneOf: # The request must match exactly one of the following patterns:
   - required:
       - image
