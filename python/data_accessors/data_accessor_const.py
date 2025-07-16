@@ -28,7 +28,7 @@ class InstanceJsonKeys:
   INSTANCES = 'instances'
   URL = 'url'
 
-  PATCH_COORDINATES = 'patch_coordinates'  # wsi dicom
+  PATCH_COORDINATES = 'patch_coordinates_list'
   X_ORIGIN = 'x_origin'  # wsi dicom
   Y_ORIGIN = 'y_origin'  # wsi dicom
   WIDTH = 'width'  # wsi dicom

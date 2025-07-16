@@ -142,13 +142,13 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
             {
                 'image': {
                     'dicomweb_uri': instance_path,
-                    'patch_coordinates': [_pc(0, 0), _pc(1, 1)],
+                    'patch_coordinates_list': [_pc(0, 0), _pc(1, 1)],
                 }
             },
             {
                 'image': {
                     'dicomweb_uri': instance_path,
-                    'patch_coordinates': [_pc(2, 2), _pc(3, 3)],
+                    'patch_coordinates_list': [_pc(2, 2), _pc(3, 3)],
                 }
             },
         ]
@@ -215,7 +215,10 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
             {
                 'image': {
                     'input_bytes': base64_jpeg,
-                    'patch_coordinates': [_pc(2, 2, 10, 10), _pc(3, 3, 10, 10)],
+                    'patch_coordinates_list': [
+                        _pc(2, 2, 10, 10),
+                        _pc(3, 3, 10, 10),
+                    ],
                 }
             },
         ]
@@ -271,13 +274,13 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
             {
                 'image': {
                     'dicomweb_uri': instance_path,
-                    'patch_coordinates': [_pc(0, 0), _pc(1, 1)],
+                    'patch_coordinates_list': [_pc(0, 0), _pc(1, 1)],
                 }
             },
             {
                 'image': {
                     'dicomweb_uri': instance_path,
-                    'patch_coordinates': [_pc(2, 2), _pc(3, 3)],
+                    'patch_coordinates_list': [_pc(2, 2), _pc(3, 3)],
                 }
             },
         ]
@@ -421,7 +424,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
               {
                   'image': {
                       'dicomweb_uri': instance_path,
-                      'patch_coordinates': [_pc(0, 0), _pc(1, 1)],
+                      'patch_coordinates_list': [_pc(0, 0), _pc(1, 1)],
                   }
               },
               {'text': 'test_text_2'},
@@ -487,7 +490,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                   {
                       'image': {
                           'gcs_uri': 'gs://earth/test.dcm',
-                          'patch_coordinates': [_pc(0, 0), _pc(1, 1)],
+                          'patch_coordinates_list': [_pc(0, 0), _pc(1, 1)],
                       }
                   },
                   {
@@ -542,7 +545,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                   {
                       'image': {
                           'gcs_uri': 'gs://earth/test.dcm',
-                          'patch_coordinates': [_pc(0, 0), _pc(1, 1)],
+                          'patch_coordinates_list': [_pc(0, 0), _pc(1, 1)],
                       }
                   },
                   {
@@ -696,13 +699,13 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
             {
                 'image': {
                     'dicomweb_uri': instance_path,
-                    'patch_coordinates': [_pc(0, 0), _pc(1, 1)],
+                    'patch_coordinates_list': [_pc(0, 0), _pc(1, 1)],
                 }
             },
             {
                 'image': {
                     'dicomweb_uri': instance_path,
-                    'patch_coordinates': [_pc(2, 2), _pc(3, 3)],
+                    'patch_coordinates_list': [_pc(2, 2), _pc(3, 3)],
                 }
             },
         ]
