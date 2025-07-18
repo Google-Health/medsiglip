@@ -33,6 +33,7 @@ echo "Serving framework start, launching model server"
     --allow-grpc=true \
     --grpc-address=127.0.0.1 \
     --grpc-port=8500 \
+    --allow-http=true \
     --http-address=127.0.0.1 \
     --http-port="${MODEL_REST_PORT}" \
     --allow-vertex-ai=false \
