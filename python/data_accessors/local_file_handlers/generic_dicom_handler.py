@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """local handler for handling generic DICOM files."""
+
+import dataclasses
 import enum
 import io
 from typing import Any, Iterator, Mapping, Optional, Sequence, Union
@@ -22,11 +24,13 @@ from PIL import ImageCms
 import pydicom
 import pydicom.errors
 
+from data_accessors import data_accessor_const
 from data_accessors import data_accessor_errors
 from data_accessors.local_file_handlers import abstract_handler
 from data_accessors.utils import dicom_source_utils
 from data_accessors.utils import icc_profile_utils
 from data_accessors.utils import image_dimension_utils
+from data_accessors.utils import json_validation_utils
 from data_accessors.utils import patch_coordinate as patch_coordinate_module
 from data_processing import image_utils
 
@@ -37,6 +41,10 @@ _PYDICOM_MAJOR_VERSION = int((pydicom.__version__).split('.')[0])
 _PIXEL_DATA = 'PixelData'
 _WINDOW_CENTER = 'WindowCenter'
 _WINDOW_WIDTH = 'WindowWidth'
+
+# Default CT Window (-1400 to 600 HU)
+_DEFAULT_CT_WINDOW_CENTER = 100
+_DEFAULT_CT_WINDOW_WIDTH = 2500
 
 # DICOM Transfer Syntax UIDs
 _IMPLICIT_VR_ENDIAN_TRANSFER_SYNTAX = '1.2.840.10008.1.2'
@@ -63,6 +71,12 @@ _SUPPORTED_UNENCAPSULATED_PHOTOMETRIC_INTERPRETATIONS = frozenset(
 _SUPPORTED_SAMPLES_PER_PIXEL = frozenset([1, 3])
 
 
+@dataclasses.dataclass(frozen=True)
+class _Window:
+  center: int
+  width: int
+
+
 class _MODALITY(enum.Enum):
   """Modality Coded Values."""
 
@@ -71,6 +85,7 @@ class _MODALITY(enum.Enum):
   GM = 'GM'  # General Microscopy
   SM = 'SM'  # Slide Microscopy
   XC = 'XC'  # External Camera
+  CT = 'CT'  # Computed Tomography
 
 
 _CXR_MODALITIES = {_MODALITY.CR.value, _MODALITY.DX.value}
@@ -88,6 +103,8 @@ def _validate_modality_supported(dcm: pydicom.FileDataset) -> None:
   if modality in _CXR_MODALITIES or modality in _MICROSCOPY_MODALITIES:
     return
   if modality == _MODALITY.XC.value:
+    return
+  if modality == _MODALITY.CT.value:
     return
   raise data_accessor_errors.DicomError(
       f'DICOM encodes a unsupported Modality; Modality: {modality}.'
@@ -189,15 +206,53 @@ def _rescale_cxr_dynamic_range(image_bytes: np.ndarray) -> np.ndarray:
     ) from exp
 
 
-def _norm_cxr_imaging(arr: np.ndarray, ds: pydicom.FileDataset) -> np.ndarray:
+def _window(
+    image: np.ndarray,
+    window: _Window,
+) -> np.ndarray:
+  """Applies the Window operation on an integer image.
+
+  Based on CXR embedding implementation in image_utils.
+  implemented inline to address bug in CXR implementation.
+  * actual window range should be center +- half width.
+  * rounds interpolated value to nearest integer for better precision.
+
+  Args:
+    image: An image to be windowed.containing signed integer pixels.
+    window: Window to apply.
+
+  Returns:
+    Windowed image as numpy array.
+  """
+  iinfo = np.iinfo(np.uint16)
+  # Actual range is center - half width to center + half width.
+  # Actual number of pixels is width + 1.
+  # See https://radiopaedia.org/articles/windowing-ct?lang=us
+  half_window_width = window.width // 2
+  top_clip = window.center + half_window_width
+  bottom_clip = window.center - half_window_width
+  # Round prior to cast to minimize precision loss.
+  return np.round(
+      np.interp(
+          image.clip(bottom_clip, top_clip),
+          (bottom_clip, top_clip),
+          (0, iinfo.max),
+      ),
+      0,
+  ).astype(iinfo)
+
+
+def _norm_cxr_imaging(
+    window: Optional[_Window], arr: np.ndarray, ds: pydicom.FileDataset
+) -> np.ndarray:
   """Applies data handling from pydicom."""
   pixel_array = pydicom.pixels.processing.apply_modality_lut(arr, ds)
-  if _WINDOW_WIDTH in ds and _WINDOW_CENTER in ds:
+  if window is None and _WINDOW_WIDTH in ds and _WINDOW_CENTER in ds:
+    window = _Window(ds.WindowCenter, ds.WindowWidth)
+  if window is not None:
     # windowing will normalize imaging to uint16.
     # with dynamic range scaled across the windowed range.
-    pixel_array = image_utils.window(
-        pixel_array, ds.WindowCenter, ds.WindowWidth, np.uint16
-    )
+    pixel_array = _window(pixel_array, window)
   if pixel_array.dtype == np.float64:
     # if pixel array is altered by the LUT will be transformed to float64.
     # https://pydicom.github.io/pydicom/dev/reference/generated/pydicom.pixels.apply_modality_lut.html
@@ -206,6 +261,36 @@ def _norm_cxr_imaging(arr: np.ndarray, ds: pydicom.FileDataset) -> np.ndarray:
   # Scale imaging
   pixel_array = _rescale_cxr_dynamic_range(pixel_array)
   if ds.PhotometricInterpretation == MONOCHROME1:
+    return np.iinfo(pixel_array.dtype).max - pixel_array
+  return pixel_array
+
+
+def _norm_ct_imaging(
+    window: Optional[_Window], arr: np.ndarray, ds: pydicom.FileDataset
+) -> np.ndarray:
+  """Applies data handling from pydicom."""
+  # Not applying ModalityLUTSequence on CT images.
+  has_rescale_slope = 'RescaleSlope' in ds
+  has_rescale_intercept = 'RescaleIntercept' in ds
+  if has_rescale_slope and has_rescale_intercept:
+    pixel_array = arr.astype(np.float64) * ds.RescaleSlope
+    pixel_array += ds.RescaleIntercept
+  elif has_rescale_slope or has_rescale_intercept:
+    raise data_accessor_errors.DicomError(
+        'DICOM instance is missing RescaleSlope or RescaleIntercept tags.'
+    )
+  else:
+    pixel_array = arr
+  if window is None:
+    if _WINDOW_WIDTH in ds and _WINDOW_CENTER in ds:
+      window = _Window(ds.WindowCenter, ds.WindowWidth)
+    else:
+      window = _Window(_DEFAULT_CT_WINDOW_CENTER, _DEFAULT_CT_WINDOW_WIDTH)
+  # windowing will normalize imaging to uint16.
+  # with dynamic range scaled across the windowed range.
+  pixel_array = _window(pixel_array, window)
+  if ds.PhotometricInterpretation == MONOCHROME1:
+    # windowing will normalize imaging input to range of uint16.
     return np.iinfo(pixel_array.dtype).max - pixel_array
   return pixel_array
 
@@ -280,14 +365,42 @@ def validate_unencapsulated_photometric_interpretation(
     )
 
 
+def _parse_window(base_request: Mapping[str, Any]) -> Optional[_Window]:
+  """Parse window from base request."""
+  base_request = base_request.get(
+      data_accessor_const.InstanceJsonKeys.RADIOLOGY_DICOM_WINDOW_LEVEL
+  )
+  if base_request is None:
+    return None
+  try:
+    base_request = json_validation_utils.validate_str_key_dict(base_request)
+    center = base_request.get(
+        data_accessor_const.InstanceJsonKeys.WINDOW_CENTER
+    )
+    width = base_request.get(data_accessor_const.InstanceJsonKeys.WINDOW_WIDTH)
+    if center is not None and width is not None:
+      center = json_validation_utils.validate_int(center)
+      width = json_validation_utils.validate_int(width)
+      return _Window(center, width)
+    raise data_accessor_errors.InvalidRequestFieldError(
+        'Invalid request; WindowCenter and WindowWidth must both be specified.'
+    )
+  except json_validation_utils.ValidationError as exp:
+    raise data_accessor_errors.InvalidRequestFieldError(
+        'Request contains an incorrectly formatted window_level parameter.'
+    ) from exp
+
+
 def decode_dicom_image(
     dcm: pydicom.FileDataset,
     target_icc_profile: Optional[ImageCms.core.CmsProfile],
     patch_coordinates: Sequence[patch_coordinate_module.PatchCoordinate],
     resize_image_dimensions: Optional[image_dimension_utils.ImageDimensions],
     patch_required_to_be_fully_in_source_image: bool,
+    base_request: Mapping[str, Any],
 ) -> Iterator[np.ndarray]:
   """Decode DICOM image and return decoded image bytes."""
+  window = _parse_window(base_request)
   _validate_modality_supported(dcm)
   validate_transfer_syntax(dcm)
   validate_samples_per_pixel(dcm)
@@ -341,7 +454,13 @@ def decode_dicom_image(
       and decoded_image_bytes.ndim == 3
       and decoded_image_bytes.shape[2] == 1
   ):
-    decoded_image_bytes = _norm_cxr_imaging(decoded_image_bytes, dcm)
+    decoded_image_bytes = _norm_cxr_imaging(window, decoded_image_bytes, dcm)
+  elif (
+      dcm.Modality in _MODALITY.CT.value
+      and decoded_image_bytes.ndim == 3
+      and decoded_image_bytes.shape[2] == 1
+  ):
+    decoded_image_bytes = _norm_ct_imaging(window, decoded_image_bytes, dcm)
   if resize_image_dimensions is not None:
     decoded_image_bytes = image_dimension_utils.resize_image_dimensions(
         decoded_image_bytes, resize_image_dimensions
@@ -404,6 +523,7 @@ class GenericDicomHandler(abstract_handler.AbstractHandler):
             instance_patch_coordinates,
             resize_image_dimensions,
             patch_required_to_be_fully_in_source_image,
+            base_request,
         )
     except pydicom.errors.InvalidDicomError:
       # The handler is purposefully eating the message here.

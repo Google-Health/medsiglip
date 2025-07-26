@@ -25,23 +25,27 @@ import numpy as np
 import pydicom
 
 from data_accessors import abstract_data_accessor
+from data_accessors import data_accessor_const
 from data_accessors import data_accessor_errors
 from data_accessors.dicom_generic import data_accessor_definition
 from data_accessors.local_file_handlers import generic_dicom_handler
 from data_accessors.utils import icc_profile_utils
 from data_accessors.utils import image_dimension_utils
+from data_accessors.utils import json_validation_utils
 from data_accessors.utils import patch_coordinate as patch_coordinate_module
+
+_InstanceJsonKeys = data_accessor_const.InstanceJsonKeys
 
 
 # Transfer Syntax UID for uncompressed little endian.
-_UNCOMPRESSED_LITTLE_ENDIAN_TRANSFER_SYNTAX = '1.2.840.10008.1.2.1'
+_UNCOMPRESSED_LITTLE_ENDIAN_TRANSFER_SYNTAX_UID = '1.2.840.10008.1.2.1'
 
 
 def _can_decode_transfer_syntax(
     instance: data_accessor_definition.DicomGenericImage,
 ):
   transfer_syntax_uid = instance.dicom_instances_metadata[0].transfer_syntax_uid
-  if transfer_syntax_uid == _UNCOMPRESSED_LITTLE_ENDIAN_TRANSFER_SYNTAX:
+  if transfer_syntax_uid == _UNCOMPRESSED_LITTLE_ENDIAN_TRANSFER_SYNTAX_UID:
     return True
   return dicom_frame_decoder.can_decompress_dicom_transfer_syntax(
       transfer_syntax_uid
@@ -68,7 +72,7 @@ def _download_dicom_instance(
         # transcode to uncompressed little endian.
         dwi.download_instance(
             instance_path,
-            _UNCOMPRESSED_LITTLE_ENDIAN_TRANSFER_SYNTAX,
+            _UNCOMPRESSED_LITTLE_ENDIAN_TRANSFER_SYNTAX_UID,
             output_file,
         )
     except ez_wsi_errors.HttpError as exp:
@@ -81,23 +85,27 @@ def _get_dicom_image(
     local_file_path: str,
 ) -> Iterator[np.ndarray]:
   """Returns image patch bytes from DICOM series."""
+  extensions = json_validation_utils.validate_str_key_dict(
+      instance.base_request.get(
+          _InstanceJsonKeys.EXTENSIONS,
+          {},
+      )
+  )
   with contextlib.ExitStack() as stack:
     if not local_file_path:
       local_file_path = _download_dicom_instance(stack, instance)
     try:
       with pydicom.dcmread(local_file_path) as dcm:
         target_icc_profile = icc_profile_utils.get_target_icc_profile(
-            instance.extensions
+            extensions
         )
         patch_required_to_be_fully_in_source_image = (
             patch_coordinate_module.patch_required_to_be_fully_in_source_image(
-                instance.extensions
+                extensions
             )
         )
         resize_image_dimensions = (
-            image_dimension_utils.get_resize_image_dimensions(
-                instance.extensions
-            )
+            image_dimension_utils.get_resize_image_dimensions(extensions)
         )
         yield from generic_dicom_handler.decode_dicom_image(
             dcm,
@@ -105,10 +113,11 @@ def _get_dicom_image(
             instance.patch_coordinates,
             resize_image_dimensions,
             patch_required_to_be_fully_in_source_image,
+            instance.base_request,
         )
     except pydicom.errors.InvalidDicomError as exp:
       raise data_accessor_errors.DicomError(
-          'DICOM cannot decode pixel data.'
+          'Cannot decode pixel data from DICOM.'
       ) from exp
 
 

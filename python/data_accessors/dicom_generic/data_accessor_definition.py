@@ -34,7 +34,7 @@ _PRESENT = 'PRESENT'
 class DicomGenericImage:
   credential_factory: credential_factory_module.AbstractCredentialFactory
   instance_path: str
-  extensions: Mapping[str, Any]
+  base_request: Mapping[str, Any]
   patch_coordinates: List[patch_coordinate_module.PatchCoordinate]
   dicom_instances_metadata: List[dicom_web_interface.DicomObject]
 
@@ -98,12 +98,7 @@ def json_to_generic_dicom_image(
     return DicomGenericImage(
         credential_factory=credential_factory,
         instance_path=instance_path,
-        extensions=json_validation_utils.validate_str_key_dict(
-            instance.get(
-                _InstanceJsonKeys.EXTENSIONS,
-                {},
-            )
-        ),
+        base_request=instance,
         patch_coordinates=patch_coordinates,
         dicom_instances_metadata=dicom_instances_metadata,
     )

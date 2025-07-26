@@ -16,7 +16,7 @@
 import io
 import os
 import tempfile
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -52,6 +52,40 @@ _MOCK_INSTANCE_METADATA_REQUEST_ICCPROFILE_NORM = (
 
 def _encapsulated_dicom_path() -> str:
   return test_utils.testdata_path('cxr', 'encapsulated_cxr.dcm')
+
+
+def _mock_ct_dicom(
+    path: str,
+    photometric_interpretation: str,
+    window_center: Optional[int] = None,
+    window_width: Optional[int] = None,
+) -> str:
+  with pydicom.dcmread(_encapsulated_dicom_path()) as dcm:
+    if 'WindowCenter' in dcm:
+      del dcm['WindowCenter']
+    if 'WindowWidth' in dcm:
+      del dcm['WindowWidth']
+    if window_center is not None and window_width is not None:
+      dcm.WindowCenter = window_center
+      dcm.WindowWidth = window_width
+    dcm.Modality = 'CT'
+    dcm.file_meta.TransferSyntaxUID = '1.2.840.10008.1.2.1'
+    dcm.SOPClassUID = '1.2.840.10008.5.1.4.1.1.2.1'
+    dcm.Rows = 3
+    dcm.Columns = 3
+    dcm.PhotometricInterpretation = photometric_interpretation
+    dcm.SamplesPerPixel = 1
+    dcm.BitsAllocated = 16
+    dcm.BitsStored = 12
+    dcm.HighBit = 11
+    dcm.PixelRepresentation = 1  # twos complement
+    image_pixels = np.zeros((3, 3), dtype=np.int16)
+    for i in range(9):
+      image_pixels[int(i // 3), int(i % 3)] = (4000 * i / 8) - 2000
+    print(image_pixels)
+    dcm.PixelData = image_pixels.tobytes()
+    dcm.save_as(path)
+    return path
 
 
 class GenericDicomHandlerTest(parameterized.TestCase):
@@ -460,9 +494,96 @@ class GenericDicomHandlerTest(parameterized.TestCase):
         dcm.save_as(dcm_path)
       with self.assertRaisesRegex(
           data_accessor_errors.DicomError,
-          '.*DICOM instance encoded using unsupported transfer syntax.*'
+          '.*DICOM instance encoded using unsupported transfer syntax.*',
       ):
         list(_generic_dicom_handler.process_file([], {}, dcm_path))
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='DEFAULT_WINDOW_MONOCHROME2',
+          photometric_interpretation='MONOCHROME2',
+          window={},
+          expected=np.asarray(
+              [[0, 0, 3932], [17039, 30146, 43253], [56360, 65535, 65535]],
+              dtype=np.uint16,
+          ),
+      ),
+      dict(
+          testcase_name='DEFAULT_WINDOW_MONOCHROME1',
+          photometric_interpretation='MONOCHROME1',
+          window={},
+          expected=np.asarray(
+              [[65535, 65535, 61603], [48496, 35389, 22282], [9175, 0, 0]],
+              dtype=np.uint16,
+          ),
+      ),
+      dict(
+          testcase_name='CUSTOM_WINDOW_MONOCHROME2',
+          photometric_interpretation='MONOCHROME2',
+          window={
+              'radiology_dicom_window_level': {'center': 0, 'width': 1000}
+          },
+          expected=np.asarray(
+              [[0, 0, 0], [0, 32768, 65535], [65535, 65535, 65535]],
+              dtype=np.uint16,
+          ),
+      ),
+  )
+  def test_ct_windowing_default_window_center(
+      self, photometric_interpretation, window, expected
+  ):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      dcm_path = _mock_ct_dicom(
+          os.path.join(temp_dir, 'test.dcm'), photometric_interpretation
+      )
+      result = list(_generic_dicom_handler.process_file([], window, dcm_path))
+      self.assertLen(result, 1)
+      result = result[0]
+      result = np.squeeze(result, axis=-1)
+      np.testing.assert_array_equal(result, expected)
+
+  def test_ct_windowing_embedded_window_center(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      dcm_path = _mock_ct_dicom(
+          os.path.join(temp_dir, 'test.dcm'),
+          'MONOCHROME2',
+          0,
+          1000,
+      )
+      result = list(_generic_dicom_handler.process_file([], {}, dcm_path))
+      self.assertLen(result, 1)
+      result = result[0]
+      result = np.squeeze(result, axis=-1)
+      np.testing.assert_array_equal(
+          result,
+          np.asarray(
+              [[0, 0, 0], [0, 32768, 65535], [65535, 65535, 65535]],
+              dtype=np.uint16,
+          ),
+      )
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='radiology_dicom_window_level_not_dict',
+          window={'radiology_dicom_window_level': 'not_dict'},
+      ),
+      dict(
+          testcase_name='missing_center',
+          window={'radiology_dicom_window_level': {'width': 1000}},
+      ),
+      dict(
+          testcase_name='missing_width',
+          window={'radiology_dicom_window_level': {'center': 0}},
+      ),
+  )
+  def test_parse_window_raises(self, window):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      dcm_path = _mock_ct_dicom(
+          os.path.join(temp_dir, 'test.dcm'),
+          'MONOCHROME2',
+      )
+      with self.assertRaises(data_accessor_errors.InvalidRequestFieldError):
+        list(_generic_dicom_handler.process_file([], window, dcm_path))
 
 
 if __name__ == '__main__':

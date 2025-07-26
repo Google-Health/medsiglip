@@ -56,6 +56,8 @@ properties:
         pattern: ^https?://.+$
         description: >
           The URL of an file hosted on a public web server.
+      radiology_dicom_window_level:
+        $ref: '#/components/radiology_dicom_window_level'
       patch_coordinates_list:
         type: array
         minItems: 1
@@ -220,3 +222,39 @@ components:
         - height
         properties:
           index: false
+  radiology_dicom_window_level:
+    type: object
+    description: >
+      This field controls the window center and window width for viewing monochrome radiology
+      images. This process, called windowing, adjusts the brightness and contrast of an image,
+      and it's applied after any Look-Up Tables (LUTs) are used.
+      Note:
+      - If the image isn't in DICOM format, this field is ignored.
+      - For CT DICOM images, the window center and width set by this field take precedence over DICOM
+      tags (WindowCenter, WindowWidth). If neither this field nor the DICOM tags are specified, the
+      system defaults to a "wide window" setting (center: 100 Hounsfield Units (HU), width: 2500 HU).
+      - For other types of radiography DICOM images (like CR or DX modalities), the window center
+      and width set by this field take precedence over DICOM tags (WindowCenter, WindowWidth).
+      If neither this field nor the DICOM tags are specified, the image won't be windowed.
+    additionalProperties: false
+    properties:
+      center:
+        type: integer
+        format: int32
+        description: >
+          The center of the window, also known as the window level, in HU. This value
+          determines the brightness of the displayed image.
+      width:
+        type: integer
+        format: int32
+        minimum: 1
+        description: >
+          The width of the window, also known as the window width, in HU. This value determines
+          the contrast of the displayed image. A smaller width means higher contrast.
+    required:
+      - center
+      - width
+    oneOf:
+      - required:
+        - center
+        - width

@@ -28,6 +28,11 @@ class InstanceJsonKeys:
   INSTANCES = 'instances'
   URL = 'url'
 
+  # Default option for window level and center.
+  RADIOLOGY_DICOM_WINDOW_LEVEL = 'radiology_dicom_window_level'
+  WINDOW_CENTER = 'center'
+  WINDOW_WIDTH = 'width'
+
   PATCH_COORDINATES = 'patch_coordinates_list'
   X_ORIGIN = 'x_origin'  # wsi dicom
   Y_ORIGIN = 'y_origin'  # wsi dicom

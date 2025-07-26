@@ -132,6 +132,13 @@ def window(
     dtype: Any,
 ) -> np.ndarray:
   """Applies the Window operation on an integer image."""
+  # Windowing implemented here contains two issues. Leaving unchanged to
+  # avoid regression in legacy CXR embeddings.
+  # 1) Actual window range should be center +- half width.
+  # See https://radiopaedia.org/articles/windowing-ct?lang=us
+  # 2) Post interpolation, should round not floor to nearest integer.
+  # See implementation in:
+  # data_accessors/local_file_handlers/generic_dicom_handler.py
   iinfo = np.iinfo(dtype)
   half_window_width = window_width // 2
   top_clip = window_center - 1 + half_window_width
