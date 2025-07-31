@@ -9,7 +9,7 @@ absl-py==2.2.2 \
     --hash=sha256:e5797bc6abe45f64fd95dc06394ca3f2bedf3b5d895e9da691c9ee3397d70092
     # via
     #   -r ../data_accessors/requirements.in
-    #   -r medsiglip_requirements.in
+    #   -r requirements.in
     #   -r serving_framework/requirements.in
     #   ez-wsi-dicomweb
 attrs==25.3.0 \
@@ -408,7 +408,7 @@ jsonschema==4.23.0 \
     --hash=sha256:d71497fef26351a33265337fa77ffeb82423f3ea21283cd9467bb03999266bc4 \
     --hash=sha256:fbadb6f8b144a8f8cf9f0b89ba94501d143e50411a1278633f56a7acf7fd5566
     # via
-    #   -r medsiglip_requirements.in
+    #   -r requirements.in
     #   -r serving_framework/requirements.in
 jsonschema-specifications==2025.4.1 \
     --hash=sha256:4653bffbd6584f7de83a67e0d620ef16900b390ddc7939d56684d6c81e33f1af \
@@ -526,7 +526,7 @@ numpy==1.26.4 \
     --hash=sha256:ffa75af20b44f8dba823498024771d5ac50620e6915abac414251bd971b4529f
     # via
     #   -r ../data_accessors/requirements.in
-    #   -r medsiglip_requirements.in
+    #   -r requirements.in
     #   -r serving_framework/requirements.in
     #   ez-wsi-dicomweb
     #   imagecodecs
@@ -860,7 +860,7 @@ pyyaml==6.0.2 \
     --hash=sha256:f753120cb8181e736c57ef7636e83f31b9c0d1722c516f7e86cf15b7aa57ff12 \
     --hash=sha256:ff3824dc5261f50c9b0dfb3be22b4567a6f938ccce4587b38952d85fd9e9afe4
     # via
-    #   -r medsiglip_requirements.in
+    #   -r requirements.in
     #   huggingface-hub
     #   transformers
 redis==6.0.0 \
@@ -974,7 +974,7 @@ requests==2.32.4 \
     --hash=sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422
     # via
     #   -r ../data_accessors/requirements.in
-    #   -r serving_framework/requirements.in
+    #   -r serving_framework/triton/requirements.in
     #   ez-wsi-dicomweb
     #   google-api-core
     #   google-cloud-storage
@@ -987,7 +987,7 @@ requests-mock==1.9.3 \
     --hash=sha256:8d72abe54546c1fc9696fa1516672f1031d72a55a1d66c85184f972a24ba0eba
     # via
     #   -r ../data_accessors/requirements.in
-    #   -r serving_framework/requirements.in
+    #   -r serving_framework/triton/requirements.in
     #   ez-wsi-dicomweb
 requests-toolbelt==1.0.0 \
     --hash=sha256:7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6 \
@@ -1220,7 +1220,7 @@ sentencepiece==0.2.0 \
     --hash=sha256:f4d158189eb2ecffea3a51edf6d25e110b3678ec47f1a40f2d541eafbd8f6250 \
     --hash=sha256:fb89f811e5efd18bab141afc3fea3de141c3f69f3fe9e898f710ae7fe3aab251 \
     --hash=sha256:ff88712338b01031910e8e61e7239aff3ce8869ee31a47df63cb38aadd591bea
-    # via -r medsiglip_requirements.in
+    # via -r requirements.in
 six==1.17.0 \
     --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274 \
     --hash=sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81
@@ -1251,7 +1251,7 @@ tqdm==4.67.1 \
 transformers==4.51.3 \
     --hash=sha256:e292fcab3990c6defe6328f0f7d2004283ca81a7a07b2de9a46d67fd81ea1409 \
     --hash=sha256:fd3279633ceb2b777013234bbf0b4f5c2d23c4626b05497691f00cfda55e8a83
-    # via -r medsiglip_requirements.in
+    # via -r requirements.in
 tritonclient==2.56.0 \
     --hash=sha256:a28734a028a1f02429d5463b6dccc3fdb0a13308ef74d9eca8a1e5dff8c60913 \
     --hash=sha256:b0fe8ab57741f8ffa0fa9e21f1ee78610be588b37bc88eb2d15492a2a652f6ad \
@@ -1262,6 +1262,7 @@ typing-extensions==4.12.2 \
     --hash=sha256:1a7ead55c7e559dd4dee8856e3a88b41225abfe1ce8df57b7c13915fe121ffb8
     # via
     #   -r serving_framework/requirements.in
+    #   -r serving_framework/triton/requirements.in
     #   huggingface-hub
     #   opentelemetry-api
     #   referencing
@@ -1286,7 +1287,7 @@ zipp==3.23.0 \
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==75.6.0 \
-    --hash=sha256:8199222558df7c86216af4f84c30e9b34a61d8ba19366cc914424cdbd28252f6 \
-    --hash=sha256:ce74b49e8f7110f9bf04883b730f4765b774ef3ef28f722cce7c273d253aaf7d
+setuptools==78.1.1 \
+    --hash=sha256:c3a9c4211ff4c309edb8b8c4f1cbfa7ae324c4ba9f91ff254e3d305b9fd54561 \
+    --hash=sha256:fcc17fd9cd898242f6b4adfaca46137a9edef687f43e6f78469692a5e70d851d
     # via -r serving_framework/requirements.in
