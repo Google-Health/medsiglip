@@ -18,6 +18,7 @@ Uses Triton GRPC client and relies on a model server running locally.
 """
 
 from collections.abc import Mapping, Set
+from typing import Any
 
 from absl import logging
 import numpy as np
@@ -47,6 +48,7 @@ class TritonServerModelRunner(model_runner.ModelRunner):
       model_name: str = "default",
       model_version: int | None = None,
       model_output_keys: Set[str],
+      parameters: Mapping[str, Any] | None = None,
   ) -> Mapping[str, np.ndarray]:
     """Runs a model on the given input and returns multiple outputs.
 
@@ -56,6 +58,7 @@ class TritonServerModelRunner(model_runner.ModelRunner):
       model_name: The name of the model to run.
       model_version: The version of the model to run. Uses default if None.
       model_output_keys: The desired model output keys.
+      parameters: Additional parameters to pass to the model.
 
     Returns:
       A mapping of model output keys to tensors.
@@ -83,7 +86,11 @@ class TritonServerModelRunner(model_runner.ModelRunner):
       input_tensor.set_data_from_numpy(data)
       inputs.append(input_tensor)
 
-    result = self._client.infer(model_name, inputs, model_version)
+    model_parameters = None if parameters is None else dict(parameters)
+
+    result = self._client.infer(
+        model_name, inputs, model_version, parameters=model_parameters
+    )
     assert result is not None  # infer never returns None, despite annotation.
 
     outputs = {key: result.as_numpy(key) for key in model_output_keys}

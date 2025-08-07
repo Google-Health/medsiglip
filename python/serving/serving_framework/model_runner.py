@@ -20,6 +20,7 @@ interface. Provides a mixin method for batching model execution.
 
 import abc
 from collections.abc import Mapping, Sequence, Set
+from typing import Any
 
 import numpy as np
 
@@ -35,6 +36,7 @@ class ModelRunner(abc.ABC):
       model_name: str = "default",
       model_version: int | None = None,
       model_output_keys: Set[str],
+      parameters: Mapping[str, Any] | None = None,
   ) -> Mapping[str, np.ndarray]:
     """Runs a model on the given input and returns multiple outputs.
 
@@ -44,6 +46,7 @@ class ModelRunner(abc.ABC):
       model_name: The name of the model to run.
       model_version: The version of the model to run. Uses default if None.
       model_output_keys: The desired model output keys.
+      parameters: Additional parameters to pass to the model.
 
     Returns:
       A mapping of model output keys to tensors.
@@ -56,6 +59,7 @@ class ModelRunner(abc.ABC):
       model_name: str = "default",
       model_version: int | None = None,
       model_output_key: str = "output_0",
+      parameters: Mapping[str, Any] | None = None,
   ) -> np.ndarray:
     """Runs a model on the given input.
 
@@ -65,6 +69,7 @@ class ModelRunner(abc.ABC):
       model_name: The name of the model to run.
       model_version: The version of the model to run. Uses default if None.
       model_output_key: The key to pull the output from. Defaults to "output_0".
+      parameters: Additional parameters to pass to the model.
 
     Returns:
       The single output tensor.
@@ -74,6 +79,7 @@ class ModelRunner(abc.ABC):
         model_name=model_name,
         model_version=model_version,
         model_output_keys={model_output_key},
+        parameters=parameters,
     )[model_output_key]
 
   def batch_model(
@@ -83,6 +89,7 @@ class ModelRunner(abc.ABC):
       model_name: str = "default",
       model_version: int | None = None,
       model_output_key: str = "output_0",
+      parameters: Mapping[str, Any] | None = None,
   ) -> list[np.ndarray]:
     """Runs a model on each of the given inputs.
 
@@ -92,6 +99,7 @@ class ModelRunner(abc.ABC):
       model_name: The name of the model to run.
       model_version: The version of the model to run. Uses default if None.
       model_output_key: The key to pull the output from. Defaults to "output_0".
+      parameters: Additional parameters to pass to the model.
 
     Returns:
       A list of the single output tensor from each input.
@@ -102,6 +110,7 @@ class ModelRunner(abc.ABC):
             model_name=model_name,
             model_version=model_version,
             model_output_key=model_output_key,
+            parameters=parameters,
         )
         for model_input in model_inputs
     ]
@@ -113,6 +122,7 @@ class ModelRunner(abc.ABC):
       model_name: str = "default",
       model_version: int | None = None,
       model_output_keys: Set[str],
+      parameters: Mapping[str, Any] | None = None,
   ) -> list[Mapping[str, np.ndarray]]:
     """Runs a model on the given inputs and returns multiple outputs.
 
@@ -122,6 +132,7 @@ class ModelRunner(abc.ABC):
       model_name: The name of the model to run.
       model_version: The version of the model to run. Uses default if None.
       model_output_keys: The desired model output keys.
+      parameters: Additional parameters to pass to the model.
 
     Returns:
       A list containing the mapping of model output keys to tensors from each
@@ -133,6 +144,7 @@ class ModelRunner(abc.ABC):
             model_name=model_name,
             model_version=model_version,
             model_output_keys=model_output_keys,
+            parameters=parameters,
         )
         for model_input in model_inputs
     ]

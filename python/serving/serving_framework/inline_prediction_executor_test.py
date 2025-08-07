@@ -14,6 +14,7 @@
 
 from collections.abc import Mapping, Set
 from unittest import mock
+from typing import Any
 
 import numpy as np
 
@@ -32,8 +33,9 @@ class DummyModelRunner(model_runner.ModelRunner):
       model_name: str = "default",
       model_version: int | None = None,
       model_output_keys: Set[str],
+      parameters: Mapping[str, Any] | None = None,
   ) -> Mapping[str, np.ndarray]:
-    del model_name, model_version, model_output_keys
+    del model_name, model_version, model_output_keys, parameters
     return {"output_0": np.ones((1, 2), dtype=np.float32)}
 
 
