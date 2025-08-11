@@ -1,5 +1,5 @@
 absl-py~=2.2.2
-ez-wsi-dicomweb~=6.0.19
+ez-wsi-dicomweb~=6.1.0
 google-cloud-core~=2.4.3
 google-cloud-logging~=3.12.1
 google-cloud-secret-manager~=2.20.2

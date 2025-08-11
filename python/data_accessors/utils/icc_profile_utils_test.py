@@ -88,6 +88,15 @@ class ICCProfileUtilsTest(parameterized.TestCase):
         profile.tobytes(), dicom_slide.get_rommrgb_icc_profile_bytes()
     )
 
+  @parameterized.parameters(['displayP3', 'DISPLAYP3'])
+  def test_get_displayp3_iccprofile(self, profile_name):
+    profile = icc_profile_utils.get_target_icc_profile(
+        {_InstanceJsonKeys.TRANSFORM_IMAGING_TO_ICC_PROFILE: profile_name}
+    )
+    self.assertEqual(
+        profile.tobytes(), dicom_slide.get_displayp3_icc_profile_bytes()
+    )
+
 
 if __name__ == '__main__':
   absltest.main()

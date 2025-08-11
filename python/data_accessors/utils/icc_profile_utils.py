@@ -98,6 +98,8 @@ def get_target_icc_profile(
     return dicom_slide.get_rommrgb_icc_profile()
   if state == 'SRGB':
     return dicom_slide.get_srgb_icc_profile()
+  if state == 'DISPLAYP3':
+    return dicom_slide.get_displayp3_icc_profile()
   msg = (
       f'{_InstanceJsonKeys.TRANSFORM_IMAGING_TO_ICC_PROFILE} value'
       ' is not valid; expecting: ADOBERGB, ROMMRGB, SRGB, or NONE.'
