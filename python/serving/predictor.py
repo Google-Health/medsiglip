@@ -79,7 +79,27 @@ _MODEL_OUTPUT_KEYS = frozenset([
 ])
 _IMAGE_EMBEDDING_INDEX = 'image_embedding_index'
 _TEXT_EMBEDDING_INDEX = 'text_embedding_index'
-_ZERO_DIM_ARRAY = np.zeros((0,), dtype=np.uint8)
+_EMPTY_TEXT_EMBEDDING_INPUT = np.zeros(
+    (0, _MAX_TEXT_TOKEN_COUNT), dtype=np.int64
+)
+_empty_image_embedding_input: Optional[np.ndarray] = None
+
+
+def _get_empty_image_embedding_input() -> np.ndarray:
+  """Returns a zero dimension array of the specified dtype."""
+  global _empty_image_embedding_input
+  if _empty_image_embedding_input is None:
+    _empty_image_embedding_input = np.zeros(
+        (
+            0,
+            3,
+            flags.MODEL_INPUT_HEIGHT_FLAG.value,
+            flags.MODEL_INPUT_WIDTH_FLAG.value,
+        ),
+        dtype=np.float32,
+    )
+  return _empty_image_embedding_input
+
 
 _LOCAL_FILE_HANDLERS = [
     generic_dicom_handler.GenericDicomHandler(),
@@ -115,7 +135,8 @@ def _get_siglip_image_processor() -> siglip.SiglipImageProcessor:
 _siglip_tokenizer: Optional[siglip.SiglipTokenizer] = None
 
 
-def _run_siglip_tokenizer(text: str, truncation: bool) -> Mapping[str, Any]:
+def _run_siglip_tokenizer(text: str) -> Mapping[str, Any]:
+  """Returns tokenize text."""
   global _siglip_tokenizer
   if _siglip_tokenizer is None:
     _siglip_tokenizer = siglip.SiglipTokenizer.from_pretrained(
@@ -126,53 +147,8 @@ def _run_siglip_tokenizer(text: str, truncation: bool) -> Mapping[str, Any]:
       return_tensors='np',
       padding='max_length',
       max_length=_MAX_TEXT_TOKEN_COUNT,
-      truncation=truncation,
+      truncation=True,
   )
-
-
-def _tokenize_text(text: str) -> Mapping[str, Any]:
-  """Returns tokenize text."""
-  tokens = _run_siglip_tokenizer(text, False)
-  token_count = tokens[_INPUT_IDS].shape[-1]
-  if token_count <= _MAX_TEXT_TOKEN_COUNT:
-    return tokens
-  msg = text if len(text) <= 256 else f'{text[:256]}...'
-  cloud_logging_client.warning(
-      f'Input text: {msg} generated {token_count} tokens. Tokens'
-      f' trucated to {_MAX_TEXT_TOKEN_COUNT}.'
-  )
-  # Unclear how token are a fixed size and if coud truncate simply by clipping
-  # the token vector.
-  return _run_siglip_tokenizer(text, True)
-
-
-_PAD_TEXT_TOKENS: Optional[np.ndarray] = None
-_PAD_INPUT_IMAGE: Optional[np.ndarray] = None
-
-
-def _get_pad_text_tokens() -> np.ndarray:
-  """Returns a text tokens to use for padding text input."""
-  global _PAD_TEXT_TOKENS
-  if _PAD_TEXT_TOKENS is None:
-    _PAD_TEXT_TOKENS = _tokenize_text('')[_INPUT_IDS]
-  return _PAD_TEXT_TOKENS
-
-
-def _get_pad_input_image() -> np.ndarray:
-  """Returns a input image to use for padding image input."""
-  global _PAD_INPUT_IMAGE
-  if _PAD_INPUT_IMAGE is None:
-    # shape: (batch, channel, height, width)
-    _PAD_INPUT_IMAGE = np.zeros(
-        (
-            1,
-            3,
-            flags.MODEL_INPUT_HEIGHT_FLAG.value,
-            flags.MODEL_INPUT_WIDTH_FLAG.value,
-        ),
-        dtype=np.float32,
-    )
-  return _PAD_INPUT_IMAGE
 
 
 @dataclasses.dataclass(frozen=True)
@@ -192,21 +168,16 @@ def _call_model(
   model_input = {}
   # shape: (batch, channel, height, width)
   images = [img.data[_PIXEL_VALUES] for img in img_list]
-  pad_image_count = (
-      flags.IMAGE_EMBEDDINGS_PER_BATCH_PREDICTION_FLAG.value - len(images)
+  model_input[_PIXEL_INPUT_KEY] = (
+      np.concatenate(images, axis=0)
+      if images
+      else _get_empty_image_embedding_input()
   )
-  if pad_image_count > 0:
-    images.extend([_get_pad_input_image()] * pad_image_count)
-  model_input[_PIXEL_INPUT_KEY] = np.concatenate(images, axis=0)
-
   text_token_list = [token.data[_INPUT_IDS] for token in token_list]
-  pad_text_count = flags.TEXT_EMBEDDINGS_PER_BATCH_PREDICTION_FLAG.value - len(
-      text_token_list
-  )
-  if pad_text_count > 0:
-    text_token_list.extend([_get_pad_text_tokens()] * pad_text_count)
-  model_input[_TOKENIZED_TEXT_INPUT_KEY] = np.concatenate(
-      text_token_list, axis=0
+  model_input[_TOKENIZED_TEXT_INPUT_KEY] = (
+      np.concatenate(text_token_list, axis=0)
+      if text_token_list
+      else _EMPTY_TEXT_EMBEDDING_INPUT
   )
   model_output = model.run_model_multiple_output(
       model_input, model_output_keys=_MODEL_OUTPUT_KEYS
@@ -215,17 +186,6 @@ def _call_model(
   # Add returned embedding request indexs to output.
   model_output[_IMAGE_EMBEDDING_INDEX] = [img.index for img in img_list]
   model_output[_TEXT_EMBEDDING_INDEX] = [token.index for token in token_list]
-  if pad_image_count == 0 and pad_text_count == 0:
-    return model_output
-  if pad_image_count > 0:
-    model_output[_IMAGE_EMBEDS_KEY] = model_output[_IMAGE_EMBEDS_KEY][
-        :-pad_image_count, ...
-    ]
-
-  if pad_text_count > 0:
-    model_output[_TEXT_EMBEDS_KEY] = model_output[_TEXT_EMBEDS_KEY][
-        :-pad_text_count, ...
-    ]
   return model_output
 
 
@@ -455,7 +415,7 @@ class _InputIter(Generic[_InputIterDataType], metaclass=abc.ABCMeta):
 class _InputTextIter(_InputIter[str]):
 
   def _pre_process(self, input_data: str) -> Mapping[str, Any]:
-    return _tokenize_text(input_data)
+    return _run_siglip_tokenizer(input_data)
 
 
 def _zero_pad_image_to_square(norm_img: np.ndarray) -> np.ndarray:
@@ -509,7 +469,7 @@ class _MlOutputDecoder:
       embedding_key: str,
       index_key: str,
   ):
-    self._embeds = model_output.get(embedding_key, _ZERO_DIM_ARRAY)
+    self._embeds = model_output.get(embedding_key, _EMPTY_TEXT_EMBEDDING_INPUT)
     self._embed_indexs = model_output.get(index_key, [])
     self._index = 0
 
@@ -621,9 +581,10 @@ class ModelPredictor(
       # set model temperature and bias if not set.
       # will be same for all predictions.
       if self.model_temperature is None:
+        # pytype: disable=attribute-error
         self.model_temperature = model_output[_SCALE_KEY].item(0)
         self.model_bias = model_output[_BIAS_KEY].item(0)
-
+        # pytype: enable=attribute-error
       for embedding in _unpack_model_output(
           model_output, buffered_results, returned_embedding_count
       ):

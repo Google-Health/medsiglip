@@ -15,7 +15,7 @@
 # This is used to build a Docker image that includes the necessary dependencies
 # for running MedSigLIP as a microservice.
 
-from nvcr.io/nvidia/tritonserver:25.03-py3
+FROM nvcr.io/nvidia/tritonserver:25.03-py3
 
 WORKDIR /
 COPY ./python/data_accessors /data_accessors

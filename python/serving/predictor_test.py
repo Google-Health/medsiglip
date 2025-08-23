@@ -54,7 +54,7 @@ def _round_embeddings(
 
 
 def _pc(
-    x_origin: int, y_origin: int, width: int = 224, height: int = 224
+    x_origin: int, y_origin: int, width: int = 448, height: int = 448
 ) -> Mapping[str, int]:
   """Return dictionary defining of patch coordinate."""
   return {
@@ -73,20 +73,28 @@ class MockModelRunner:
   ) -> Mapping[str, Union[np.ndarray, float]]:
     """Compute and return mock embeddings."""
     result = {}
-    pixels = mode_input[predictor._PIXEL_INPUT_KEY]
-    if pixels.ndim != 4:
-      raise ValueError(
-          f'MockModelRunner: Unexpected pixel data shape: {pixels.ndim}.'
-      )
-    result[predictor._IMAGE_EMBEDS_KEY] = np.mean(pixels, axis=(2, 3))
-    text_embeddings = mode_input[predictor._TOKENIZED_TEXT_INPUT_KEY]
-    if text_embeddings.ndim != 2:
-      raise ValueError(
-          f'MockModelRunner: Unexpected textdata shape: {text_embeddings.ndim}.'
-      )
-    result[predictor._TEXT_EMBEDS_KEY] = np.asarray(
-        [np.mean(text_embeddings, axis=1)]
+    pixels = mode_input.get(
+        predictor._PIXEL_INPUT_KEY, predictor._get_empty_image_embedding_input()
     )
+    if pixels.shape[0] > 0:
+      if pixels.ndim != 4:
+        raise ValueError(
+            f'MockModelRunner: Unexpected pixel data shape: {pixels.ndim}.'
+        )
+      result[predictor._IMAGE_EMBEDS_KEY] = np.mean(pixels, axis=(2, 3))
+    text_embeddings = mode_input.get(
+        predictor._TOKENIZED_TEXT_INPUT_KEY,
+        predictor._EMPTY_TEXT_EMBEDDING_INPUT,
+    )
+    if text_embeddings.shape[0] > 0:
+      if text_embeddings.ndim != 2:
+        raise ValueError(
+            'MockModelRunner: Unexpected textdata shape:'
+            f' {text_embeddings.ndim}.'
+        )
+      result[predictor._TEXT_EMBEDS_KEY] = np.mean(
+          text_embeddings, axis=1, keepdims=True
+      )
     # mock temperature and bias.
     result[predictor._SCALE_KEY] = np.asarray([1.0], dtype=np.float32)
     result[predictor._BIAS_KEY] = np.asarray([0.0], dtype=np.float32)
@@ -126,15 +134,33 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='batch_prediction',
+          testcase_name='batch_prediction_single_input',
           batch_prediction=True,
+          input_data_count=1,
+          expected_prediction_count=4,
       ),
       dict(
-          testcase_name='parallel_prediction',
+          testcase_name='parallel_prediction_single_input',
           batch_prediction=False,
+          input_data_count=1,
+          expected_prediction_count=4,
+      ),
+      dict(
+          testcase_name='batch_prediction_multiple_inputs',
+          batch_prediction=True,
+          input_data_count=10,
+          expected_prediction_count=1,
+      ),
+      dict(
+          testcase_name='parallel_prediction_multiple_inputs',
+          batch_prediction=False,
+          input_data_count=10,
+          expected_prediction_count=2,
       ),
   )
-  def test_path_dicom_prediction_embeddings(self, batch_prediction):
+  def test_path_dicom_prediction_embeddings(
+      self, batch_prediction, input_data_count, expected_prediction_count
+  ):
     dcm = _read_test_path_dcm()
     instance_path = f'{_MOCK_STORE_PATH}/studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}'
     mock_prediction_input = {
@@ -155,10 +181,16 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
     }
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_PATH) as dicom_store:
       dicom_store[_MOCK_STORE_PATH].add_instance(dcm)
-      with flagsaver.flagsaver(batch_prediction=batch_prediction):
+      with flagsaver.flagsaver(
+          batch_prediction=batch_prediction,
+          image_embeddings_per_batch_prediction=input_data_count,
+          text_embeddings_per_batch_prediction=input_data_count,
+      ):
         pred = predictor.MedSiglipPredictor()
         result = pred.predict(mock_prediction_input, _mock_model_runner)
-      self.assertEqual(pred.last_request_model_prediction_count, 4)
+      self.assertEqual(
+          pred.last_request_model_prediction_count, expected_prediction_count
+      )
       self.assertEqual(
           _round_embeddings(result, 4),
           {
@@ -169,11 +201,11 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'input_type': 'image',
                       'patch_embeddings': [
                           {
-                              'embedding': [0.5502, 0.4308, 0.6527],
+                              'embedding': [0.5577, 0.4107, 0.6422],
                               'patch_coordinate': _pc(0, 0),
                           },
                           {
-                              'embedding': [0.5481, 0.4274, 0.6513],
+                              'embedding': [0.5565, 0.4089, 0.6414],
                               'patch_coordinate': _pc(1, 1),
                           },
                       ],
@@ -184,11 +216,11 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'input_type': 'image',
                       'patch_embeddings': [
                           {
-                              'embedding': [0.5459, 0.424, 0.6498],
+                              'embedding': [0.5553, 0.407, 0.6406],
                               'patch_coordinate': _pc(2, 2),
                           },
                           {
-                              'embedding': [0.5437, 0.4206, 0.6483],
+                              'embedding': [0.554, 0.4052, 0.6397],
                               'patch_coordinate': _pc(3, 3),
                           },
                       ],
@@ -199,15 +231,33 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='batch_prediction',
+          testcase_name='batch_prediction_single_input',
           batch_prediction=True,
+          input_data_count=1,
+          expected_prediction_count=3,
       ),
       dict(
-          testcase_name='parallel_prediction',
+          testcase_name='parallel_prediction_single_input',
           batch_prediction=False,
+          input_data_count=1,
+          expected_prediction_count=3,
+      ),
+      dict(
+          testcase_name='batch_prediction_multiple_input',
+          batch_prediction=True,
+          input_data_count=10,
+          expected_prediction_count=1,
+      ),
+      dict(
+          testcase_name='parallel_prediction_multiple_input',
+          batch_prediction=False,
+          input_data_count=10,
+          expected_prediction_count=2,
       ),
   )
-  def test_jpeg_image_embeddings(self, batch_prediction):
+  def test_jpeg_image_embeddings(
+      self, batch_prediction, input_data_count, expected_prediction_count
+  ):
     base64_jpeg = base64.b64encode(_read_test_jpeg()).decode('utf-8')
     mock_prediction_input = {
         'instances': [
@@ -223,10 +273,16 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
             },
         ]
     }
-    with flagsaver.flagsaver(batch_prediction=batch_prediction):
+    with flagsaver.flagsaver(
+        batch_prediction=batch_prediction,
+        image_embeddings_per_batch_prediction=input_data_count,
+        text_embeddings_per_batch_prediction=input_data_count,
+    ):
       pred = predictor.MedSiglipPredictor()
       result = pred.predict(mock_prediction_input, _mock_model_runner)
-    self.assertEqual(pred.last_request_model_prediction_count, 3)
+    self.assertEqual(
+        pred.last_request_model_prediction_count, expected_prediction_count
+    )
     self.assertEqual(
         _round_embeddings(result, 4),
         {
@@ -258,15 +314,33 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='batch_prediction',
+          testcase_name='batch_prediction_single_input',
           batch_prediction=True,
+          input_data_count=1,
+          expected_prediction_count=4,
       ),
       dict(
-          testcase_name='parallel_prediction',
+          testcase_name='parallel_prediction_single_input',
           batch_prediction=False,
+          input_data_count=1,
+          expected_prediction_count=4,
+      ),
+      dict(
+          testcase_name='batch_prediction_multiple_input',
+          batch_prediction=True,
+          input_data_count=10,
+          expected_prediction_count=1,
+      ),
+      dict(
+          testcase_name='parallel_prediction_multiple_input',
+          batch_prediction=False,
+          input_data_count=10,
+          expected_prediction_count=2,
       ),
   )
-  def test_cxr_dicom_embeddings(self, batch_prediction):
+  def test_cxr_dicom_embeddings(
+      self, batch_prediction, input_data_count, expected_prediction_count
+  ):
     dcm = _read_test_cxr_dcm()
     instance_path = f'{_MOCK_STORE_PATH}/studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}'
     mock_prediction_input = {
@@ -287,10 +361,16 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
     }
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_PATH) as dicom_store:
       dicom_store[_MOCK_STORE_PATH].add_instance(dcm)
-      with flagsaver.flagsaver(batch_prediction=batch_prediction):
+      with flagsaver.flagsaver(
+          batch_prediction=batch_prediction,
+          image_embeddings_per_batch_prediction=input_data_count,
+          text_embeddings_per_batch_prediction=input_data_count,
+      ):
         pred = predictor.MedSiglipPredictor()
         result = pred.predict(mock_prediction_input, _mock_model_runner)
-      self.assertEqual(pred.last_request_model_prediction_count, 4)
+      self.assertEqual(
+          pred.last_request_model_prediction_count, expected_prediction_count
+      )
       self.assertEqual(
           _round_embeddings(result, 4),
           {
@@ -301,11 +381,11 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'input_type': 'image',
                       'patch_embeddings': [
                           {
-                              'embedding': [-0.999, -0.999, -0.999],
+                              'embedding': [-0.5749, -0.5749, -0.5749],
                               'patch_coordinate': _pc(0, 0),
                           },
                           {
-                              'embedding': [-0.9985, -0.9985, -0.9985],
+                              'embedding': [-0.5715, -0.5715, -0.5715],
                               'patch_coordinate': _pc(1, 1),
                           },
                       ],
@@ -316,11 +396,11 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'input_type': 'image',
                       'patch_embeddings': [
                           {
-                              'embedding': [-0.998, -0.998, -0.998],
+                              'embedding': [-0.5681, -0.5681, -0.5681],
                               'patch_coordinate': _pc(2, 2),
                           },
                           {
-                              'embedding': [-0.9974, -0.9974, -0.9974],
+                              'embedding': [-0.5646, -0.5646, -0.5646],
                               'patch_coordinate': _pc(3, 3),
                           },
                       ],
@@ -331,22 +411,46 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='batch_prediction',
+          testcase_name='batch_prediction_single_input',
           batch_prediction=True,
+          input_data_count=1,
+          expected_prediction_count=2,
       ),
       dict(
-          testcase_name='parallel_prediction',
+          testcase_name='parallel_prediction_single_input',
           batch_prediction=False,
+          input_data_count=1,
+          expected_prediction_count=2,
+      ),
+      dict(
+          testcase_name='batch_prediction_multiple_input',
+          batch_prediction=True,
+          input_data_count=10,
+          expected_prediction_count=1,
+      ),
+      dict(
+          testcase_name='parallel_prediction_multiple_input',
+          batch_prediction=False,
+          input_data_count=10,
+          expected_prediction_count=2,
       ),
   )
-  def test_text_prediction_embeddings(self, batch_prediction):
+  def test_text_prediction_embeddings(
+      self, batch_prediction, input_data_count, expected_prediction_count
+  ):
     mock_prediction_input = {
         'instances': [{'text': 'test_text_1'}, {'text': 'test_text_2'}]
     }
-    with flagsaver.flagsaver(batch_prediction=batch_prediction):
+    with flagsaver.flagsaver(
+        batch_prediction=batch_prediction,
+        image_embeddings_per_batch_prediction=input_data_count,
+        text_embeddings_per_batch_prediction=input_data_count,
+    ):
       pred = predictor.MedSiglipPredictor()
       result = pred.predict(mock_prediction_input, _mock_model_runner)
-    self.assertEqual(pred.last_request_model_prediction_count, 2)
+    self.assertEqual(
+        pred.last_request_model_prediction_count, expected_prediction_count
+    )
     self.assertEqual(
         _round_embeddings(result, 4),
         {
@@ -401,18 +505,32 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='batch_prediction',
+          testcase_name='batch_prediction_single_input',
           batch_prediction=True,
+          input_data_count=1,
           expected_count=3,
       ),
       dict(
-          testcase_name='parallel_prediction',
+          testcase_name='parallel_prediction_single_input',
           batch_prediction=False,
+          input_data_count=1,
           expected_count=5,
+      ),
+      dict(
+          testcase_name='batch_prediction_multi_input',
+          batch_prediction=True,
+          input_data_count=10,
+          expected_count=1,
+      ),
+      dict(
+          testcase_name='parallel_prediction_multi_input',
+          batch_prediction=False,
+          input_data_count=10,
+          expected_count=4,
       ),
   )
   def test_image_and_text_prediction_embeddings(
-      self, batch_prediction, expected_count
+      self, batch_prediction, input_data_count, expected_count
   ):
     dcm = _read_test_path_dcm()
     instance_path = f'{_MOCK_STORE_PATH}/studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}'
@@ -435,7 +553,11 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
               },
           ]
       }
-      with flagsaver.flagsaver(batch_prediction=batch_prediction):
+      with flagsaver.flagsaver(
+          batch_prediction=batch_prediction,
+          image_embeddings_per_batch_prediction=input_data_count,
+          text_embeddings_per_batch_prediction=input_data_count,
+      ):
         pred = predictor.MedSiglipPredictor()
         result = pred.predict(mock_prediction_input, _mock_model_runner)
       self.assertEqual(pred.last_request_model_prediction_count, expected_count)
@@ -455,11 +577,11 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'input_type': 'image',
                       'patch_embeddings': [
                           {
-                              'embedding': [0.5502, 0.4308, 0.6527],
+                              'embedding': [0.5577, 0.4107, 0.6422],
                               'patch_coordinate': _pc(0, 0),
                           },
                           {
-                              'embedding': [0.5481, 0.4274, 0.6513],
+                              'embedding': [0.5565, 0.4089, 0.6414],
                               'patch_coordinate': _pc(1, 1),
                           },
                       ],
@@ -474,7 +596,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'model_temperature': 1.0,
                       'model_bias': 0.0,
                       'input_type': 'image',
-                      'embedding': [-0.0118, -0.082, 0.0254],
+                      'embedding': [-0.0119, -0.0821, 0.0252],
                   },
               ]
           },
@@ -520,11 +642,11 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'input_type': 'image',
                       'patch_embeddings': [
                           {
-                              'embedding': [0.5502, 0.4308, 0.6527],
+                              'embedding': [0.5577, 0.4107, 0.6422],
                               'patch_coordinate': _pc(0, 0),
                           },
                           {
-                              'embedding': [0.5481, 0.4274, 0.6513],
+                              'embedding': [0.5565, 0.4089, 0.6414],
                               'patch_coordinate': _pc(1, 1),
                           },
                       ],
@@ -533,7 +655,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'model_temperature': 1.0,
                       'model_bias': 0.0,
                       'input_type': 'image',
-                      'embedding': [-0.0118, -0.082, 0.0254],
+                      'embedding': [-0.0119, -0.0821, 0.0252],
                   },
               ]
           },
@@ -569,11 +691,11 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'input_type': 'image',
                       'patch_embeddings': [
                           {
-                              'embedding': [0.5502, 0.4308, 0.6527],
+                              'embedding': [0.5577, 0.4107, 0.6422],
                               'patch_coordinate': _pc(0, 0),
                           },
                           {
-                              'embedding': [0.5481, 0.4274, 0.6513],
+                              'embedding': [0.5565, 0.4089, 0.6414],
                               'patch_coordinate': _pc(1, 1),
                           },
                       ],
@@ -582,7 +704,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
                       'model_temperature': 1.0,
                       'model_bias': 0.0,
                       'input_type': 'image',
-                      'embedding': [-0.0118, -0.082, 0.0254],
+                      'embedding': [-0.0119, -0.0821, 0.0252],
                   },
                   {
                       'model_temperature': 1.0,
@@ -600,7 +722,11 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
           },
       ),
   )
-  @flagsaver.flagsaver(batch_prediction=True)
+  @flagsaver.flagsaver(
+      batch_prediction=True,
+      image_embeddings_per_batch_prediction=1,
+      text_embeddings_per_batch_prediction=1,
+  )
   def test_buffered_prediction_embeddings_results_are_ordered_correctly(
       self, mock_prediction_input, expected_result
   ):

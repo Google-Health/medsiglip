@@ -33,13 +33,13 @@ BATCH_PREDICTION_FLAG = flags.DEFINE_bool(
 
 IMAGE_EMBEDDINGS_PER_BATCH_PREDICTION_FLAG = flags.DEFINE_integer(
     'image_embeddings_per_batch_prediction',
-    int(os.environ.get('IMAGE_EMBEDDINGS_PER_BATCH_PREDICTION', 1)),
+    int(os.environ.get('IMAGE_EMBEDDINGS_PER_BATCH_PREDICTION', 100)),
     'Number of images per batch prediction.',
 )
 
 TEXT_EMBEDDINGS_PER_BATCH_PREDICTION_FLAG = flags.DEFINE_integer(
     'text_embeddings_per_batch_prediction',
-    int(os.environ.get('TEXT_EMBEDDINGS_PER_BATCH_PREDICTION', 1)),
+    int(os.environ.get('TEXT_EMBEDDINGS_PER_BATCH_PREDICTION', 100)),
     'Number of text per batch prediction.',
 )
 
@@ -116,14 +116,6 @@ IS_DEBUGGING_FLAG = flags.DEFINE_bool(
     'internal flag for unit tests detects if running in debugger.',
 )
 
-APPROVED_GCS_SOURCE_LIST_FLAG = flags.DEFINE_multi_string(
-    'approved_gcs_source_list',
-    _load_multi_string(os.environ.get('APPROVED_GCS_SOURCE_LIST', None)),
-    'List of GCS buckets endpoints can read from; all are allowed if'
-    ' undefined.',
-)
-
-
 APPROVED_DICOM_STORE_SOURCE_LIST_FLAG = flags.DEFINE_multi_string(
     'approved_dicom_store_source_list',
     _load_multi_string(
@@ -135,12 +127,12 @@ APPROVED_DICOM_STORE_SOURCE_LIST_FLAG = flags.DEFINE_multi_string(
 
 MODEL_INPUT_WIDTH_FLAG = flags.DEFINE_integer(
     'model_input_width',
-    int(os.environ.get('MODEL_INPUT_WIDTH', 224)),
+    int(os.environ.get('MODEL_INPUT_WIDTH', 448)),
     'Width in pixels of input image to model.',
 )
 
 MODEL_INPUT_HEIGHT_FLAG = flags.DEFINE_integer(
     'model_input_height',
-    int(os.environ.get('MODEL_INPUT_HEIGHT', 224)),
+    int(os.environ.get('MODEL_INPUT_HEIGHT', 448)),
     'Height in pixels of input image to model.',
 )
