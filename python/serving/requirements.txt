@@ -121,8 +121,8 @@ dataclasses-json==0.6.7 \
     --hash=sha256:0dbf33f26c8d5305befd61b39d2b3414e8a407bedc2834dea9b8d642666fb40a \
     --hash=sha256:b6b3e528266ea45b9535223bc53ca645f5208833c29229e847b3f26a1cc55fc0
     # via ez-wsi-dicomweb
-ez-wsi-dicomweb==6.1.0 \
-    --hash=sha256:dc786426ee717163cd115160cae1eab00984a694bc7dfe94726c0cbaec567f8d
+ez-wsi-dicomweb==6.1.2 \
+    --hash=sha256:cc729c8eb7415ef48131bf4a2704f518eddc61a1d41f89f3b4d5075ddee224c0
     # via -r ../data_accessors/requirements.in
 filelock==3.19.1 \
     --hash=sha256:66eda1888b0171c998b35be2bcc0f6d75c388a7ce20c3f3f37aa8e96c2dddf58 \
