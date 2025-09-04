@@ -19,6 +19,7 @@ Uses Triton GRPC aio client and relies on a model server running locally.
 
 import asyncio
 from collections.abc import Mapping, Set
+from typing import Any
 
 from absl import logging
 import numpy as np
@@ -32,13 +33,21 @@ from serving.serving_framework import model_runner
 _HOSTPORT = "localhost:8500"
 
 
+async def _queue_request_generator(request_queue: asyncio.Queue):
+  while True:
+    request = await request_queue.get()
+    if request is None:
+      break
+    yield request
+
+
 class TritonStreamingServerModelRunner(model_runner.ModelRunner):
   """ModelRunner implementation streaming grpc to NVIDIA Triton model server."""
 
   def __init__(self):
     pass  # TODO(bramsterling): set up persistent event loop and rpc connection.
 
-  async def _call(self, model_name, inputs, model_version):
+  async def _call(self, model_name, inputs, model_version, parameters):
     async with triton_aio.InferenceServerClient(_HOSTPORT) as client:
       # Create a queue to hold the stream open after the request is sent.
       # Experimentation demonstrated that not doing this results in
@@ -48,36 +57,34 @@ class TritonStreamingServerModelRunner(model_runner.ModelRunner):
           "model_name": model_name,
           "inputs": inputs,
           "model_version": model_version,
+          "parameters": parameters,
       })
 
-      # This async generator will yield the request, then wait
-      # until a 'None' is put in the queue before it finishes.
-      async def request_generator():
-        while True:
-          request = await request_queue.get()
-          if request is None:
-            break
-          yield request
-
-      result_iterator = client.stream_infer(request_generator())
+      result_iterator = client.stream_infer(
+          _queue_request_generator(request_queue)
+      )
 
       extract = []
-      async for result, error in result_iterator:
-        if error:
+      try:
+        async for result, error in result_iterator:
+          # Enqueue signal for the input stream to close
           request_queue.put_nowait(None)
-          raise error
+          if error:
+            raise error
 
-        extract.append(result)
+          extract.append(result)
 
-        # Signal the input stream to close.
+          # Since there is only one request, the loop only runs once.
+
+        if not extract:
+          raise RuntimeError(
+              "Stream from model server closed without yielding a result."
+          )
+      finally:
+        # Ensure the input stream gets the close signal in any error case.
+        # If None has already been enqueued, enqueuing it again has no
+        # consequence.
         request_queue.put_nowait(None)
-        # Since there is only one request, the loop only runs once.
-
-      if not extract:
-        request_queue.put_nowait(None)
-        raise RuntimeError(
-            "Stream from model server closed without yielding a result."
-        )
 
     return extract[0]
 
@@ -89,6 +96,7 @@ class TritonStreamingServerModelRunner(model_runner.ModelRunner):
       model_name: str = "default",
       model_version: int | None = None,
       model_output_keys: Set[str],
+      parameters: Mapping[str, Any] | None = None,
   ) -> Mapping[str, np.ndarray]:
     """Runs a model on the given input and returns multiple outputs.
 
@@ -98,6 +106,7 @@ class TritonStreamingServerModelRunner(model_runner.ModelRunner):
       model_name: The name of the model to run.
       model_version: The version of the model to run. Uses default if None.
       model_output_keys: The desired model output keys.
+      parameters: Additional parameters to pass to the model.
 
     Returns:
       A mapping of model output keys to tensors.
@@ -126,7 +135,9 @@ class TritonStreamingServerModelRunner(model_runner.ModelRunner):
       inputs.append(input_tensor)
 
     try:
-      result = asyncio.run(self._call(model_name, inputs, model_version))
+      result = asyncio.run(
+          self._call(model_name, inputs, model_version, parameters)
+      )
     except asyncio.exceptions.CancelledError as e:
       raise RuntimeError(
           "Model server request was cancelled. This may be due to the server"
