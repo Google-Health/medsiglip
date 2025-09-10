@@ -843,6 +843,69 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
       self.assertEqual(pred.last_request_model_prediction_count, 0)
       self.assertEqual(result, {'error': 'TOO_MANY_PATCHES_ERROR'})
 
+  @flagsaver.flagsaver(batch_prediction=True, max_embeddings_per_request=-1)
+  def test_requested_embeddings_prediction_limit_disabled_succeeds(self):
+    dcm = _read_test_path_dcm()
+    instance_path = f'{_MOCK_STORE_PATH}/studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}'
+    mock_prediction_input = {
+        'instances': [
+            {
+                'image': {
+                    'dicomweb_uri': instance_path,
+                    'patch_coordinates_list': [_pc(0, 0), _pc(1, 1)],
+                }
+            },
+            {
+                'image': {
+                    'dicomweb_uri': instance_path,
+                    'patch_coordinates_list': [_pc(2, 2), _pc(3, 3)],
+                }
+            },
+        ]
+    }
+    with dicom_store_mock.MockDicomStores(_MOCK_STORE_PATH) as dicom_store:
+      dicom_store[_MOCK_STORE_PATH].add_instance(dcm)
+      pred = predictor.MedSiglipPredictor()
+      result = pred.predict(mock_prediction_input, _mock_model_runner)
+      self.assertEqual(pred.last_request_model_prediction_count, 1)
+      self.assertEqual(
+          _round_embeddings(result, 4),
+          {
+              'predictions': [
+                  {
+                      'input_type': 'image',
+                      'patch_embeddings': [
+                          {
+                              'embedding': [0.5577, 0.4107, 0.6422],
+                              'patch_coordinate': _pc(0, 0),
+                          },
+                          {
+                              'embedding': [0.5565, 0.4089, 0.6414],
+                              'patch_coordinate': _pc(1, 1),
+                          },
+                      ],
+                      'model_temperature': 1.0,
+                      'model_bias': 0.0,
+                  },
+                  {
+                      'input_type': 'image',
+                      'patch_embeddings': [
+                          {
+                              'embedding': [0.5553, 0.4070, 0.6406],
+                              'patch_coordinate': _pc(2, 2),
+                          },
+                          {
+                              'embedding': [0.5540, 0.4052, 0.6397],
+                              'patch_coordinate': _pc(3, 3),
+                          },
+                      ],
+                      'model_temperature': 1.0,
+                      'model_bias': 0.0,
+                  },
+              ]
+          },
+      )
+
   @parameterized.named_parameters(
       dict(
           testcase_name='batch_prediction',

@@ -603,6 +603,9 @@ def _validate_encoder_request(
     ],
 ) -> None:
   """Validates the request does not exceed the maximum number of embeddings."""
+  # If flag is negative then enable requests of any size to be processed.
+  if flags.MAX_EMBEDDINGS_PER_REQUEST_FLAG.value < 0:
+    return
   instance_count = 0
   for request in requests:
     if request.instance.patch_coordinates:

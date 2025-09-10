@@ -46,8 +46,8 @@ TEXT_EMBEDDINGS_PER_BATCH_PREDICTION_FLAG = flags.DEFINE_integer(
 # Avoid exceeding vertex response limit
 MAX_EMBEDDINGS_PER_REQUEST_FLAG = flags.DEFINE_integer(
     'max_embeddings_per_request',
-    int(os.environ.get('MAX_EMBEDDINGS_PER_REQUEST', 4000)),
-    'Max embeddings per request.',
+    int(os.environ.get('MAX_EMBEDDINGS_PER_REQUEST', '-1')),
+    'Max embeddings per request; disabled if negative.',
 )
 
 THREAD_POOL_MAX_WORKERS_FLAG = flags.DEFINE_integer(
