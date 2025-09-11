@@ -95,7 +95,8 @@ PER_THREAD_LOG_SIGNATURES_FLG = flags.DEFINE_boolean(
 def _are_flags_initialized() -> bool:
   """Returns True if flags are initialized."""
   try:
-    return CLOUD_OPS_LOG_PROJECT_FLG.value is not None
+    _ = CLOUD_OPS_LOG_PROJECT_FLG.value
+    return True
   except (flags.UnparsedFlagAccessError, AttributeError):
     return False
 
@@ -186,11 +187,9 @@ class CloudLoggingClient(
             'Singleton already initialized.'
         )
       CloudLoggingClient._set_absl_skip_frames()
-      gcp_project = (
-          _default_gcp_project()
-          if CLOUD_OPS_LOG_PROJECT_FLG.value is None
-          else CLOUD_OPS_LOG_PROJECT_FLG.value
-      )
+      gcp_project = CLOUD_OPS_LOG_PROJECT_FLG.value
+      if gcp_project is None or not gcp_project.strip():
+        gcp_project = _default_gcp_project()
       pod_host_name = (
           '' if POD_HOSTNAME_FLG.value is None else POD_HOSTNAME_FLG.value
       )

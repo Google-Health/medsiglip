@@ -24,6 +24,7 @@ import time
 import traceback
 from unittest import mock
 
+from absl import flags
 from absl import logging as absl_logging
 from absl.testing import absltest
 from absl.testing import flagsaver
@@ -265,9 +266,19 @@ class CloudLoggingTest(parameterized.TestCase):
   def test_flags_initialized(self):
     self.assertTrue(cloud_logging_client._are_flags_initialized())
 
-  @flagsaver.flagsaver(ops_log_project=None)
   def test_flags_not_initialized(self):
-    self.assertFalse(cloud_logging_client._are_flags_initialized())
+    # store original flag replace with mock which will raise exception
+    # on access
+    ops_log_project_flag = cloud_logging_client.CLOUD_OPS_LOG_PROJECT_FLG
+    try:
+      flg_mock = mock.Mock()
+      type(flg_mock).value = mock.PropertyMock(
+          side_effect=flags.UnparsedFlagAccessError
+      )
+      cloud_logging_client.CLOUD_OPS_LOG_PROJECT_FLG = flg_mock
+      self.assertFalse(cloud_logging_client._are_flags_initialized())
+    finally:
+      cloud_logging_client.CLOUD_OPS_LOG_PROJECT_FLG = ops_log_project_flag
 
   @parameterized.named_parameters([
       dict(
