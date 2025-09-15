@@ -70,7 +70,7 @@ def main(argv: Sequence[str]) -> None:
       ),
       health_check=health_checker,
       options=options,
-      instance_validator=instance_validator,
+      input_validator=instance_validator,
       prediction_validator=prediction_validator,
   ).run()
 

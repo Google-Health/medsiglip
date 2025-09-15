@@ -120,7 +120,9 @@ class ModelServerHealthCheck(abc.ABC):
 def _create_app(
     executor: PredictionExecutor,
     health_check: ModelServerHealthCheck | None,
-    instance_validator: jsonschema.Draft202012Validator | None = None,
+    *,
+    input_validator: jsonschema.Draft202012Validator | None = None,
+    instance_input: bool = True,
     prediction_validator: jsonschema.Draft202012Validator | None = None,
 ) -> flask.Flask:
   """Creates a Flask app with the given executor."""
@@ -147,24 +149,28 @@ def _create_app(
 
   def predict() -> tuple[dict[str, Any], int]:
     logging.info("predict route hit")
-    if flask.request.get_json(silent=True) is None:
+    json_body = flask.request.get_json(silent=True)
+    if json_body is None:
       return {"error": "No JSON body."}, http.HTTPStatus.BAD_REQUEST.value
-    if "instances" not in flask.request.get_json():
+    if instance_input and "instances" not in json_body:
       return {
           "error": "No instances field in request."
       }, http.HTTPStatus.BAD_REQUEST.value
 
-    if instance_validator is not None:
+    if input_validator is not None:
       try:
-        for instance in flask.request.get_json()["instances"]:
-          instance_validator.validate(instance)
+        if instance_input:
+          for instance in json_body["instances"]:
+            input_validator.validate(instance)
+        else:
+          input_validator.validate(json_body)
       except jsonschema.exceptions.ValidationError as e:
-        logging.warning("Instance validation failed")
+        logging.warning("Input validation failed")
         return {"error": str(e)}, http.HTTPStatus.BAD_REQUEST.value
 
     logging.debug("Dispatching request to executor.")
     try:
-      exec_result = executor.execute(flask.request.get_json())
+      exec_result = executor.execute(json_body)
       logging.debug("Executor returned results.")
       if prediction_validator is not None:
         try:
@@ -202,7 +208,8 @@ class PredictionApplication(gunicorn_base.BaseApplication):
       *,
       health_check: ModelServerHealthCheck | None,
       options: Optional[Mapping[str, Any]] = None,
-      instance_validator: jsonschema.Draft202012Validator | None = None,
+      input_validator: jsonschema.Draft202012Validator | None = None,
+      instance_input: bool = True,
       prediction_validator: jsonschema.Draft202012Validator | None = None,
   ):
     self.options = options or {}
@@ -212,7 +219,8 @@ class PredictionApplication(gunicorn_base.BaseApplication):
     self.application = _create_app(
         self._executor,
         health_check,
-        instance_validator=instance_validator,
+        input_validator=input_validator,
+        instance_input=instance_input,
         prediction_validator=prediction_validator,
     )
     super().__init__()
