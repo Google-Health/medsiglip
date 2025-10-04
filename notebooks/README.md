@@ -11,7 +11,12 @@
     online or batch workflows.
 
 *   [Fine-tune with Hugging Face](fine_tune_with_hugging_face.ipynb) - Example
-    of fine-tuning the model using Hugging Face libraries.
+    of fine-tuning the model for contrastive image-text learning using Hugging
+    Face libraries.
+
+*   [Fine-tune for image classification](fine_tune_for_image_classification.ipynb) - Example
+    of fine-tuning the vision encoder for multi-label image classification using
+    Hugging Face libraries.
 
 *   [Train a data efficient classifier](train_data_efficient_classifier.ipynb) -
     Example of using the generated image embeddings to train a custom classifier
