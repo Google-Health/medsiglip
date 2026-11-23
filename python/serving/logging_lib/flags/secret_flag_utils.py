@@ -42,7 +42,7 @@ _ENABLE_ENV_SECRET_MANAGER = bool(
 )
 
 
-# Cache secret metadata to avoid repeated reads when initalizing flags.
+# Cache secret metadata to avoid repeated reads when initializing flags.
 _cache = cachetools.LRUCache(maxsize=1)
 _cache_lock = threading.Lock()
 
@@ -162,7 +162,7 @@ def _read_secrets(secret_name: str) -> Mapping[str, Any]:
 def get_secret_or_env(name: str, default: _T) -> Union[str, _T]:
   """Returns value defined in secret manager, env, or if undefined default.
 
-  Searchs first for variable definition in JSON dict stored within the GCP
+  Searches first for variable definition in JSON dict stored within the GCP
   secret managner. The GCP secret containing the dict is defined by the
   _SECRET_MANAGER_ENV_CONFIG. If the variable is not found in the GCP encoded
   secret, or if the _SECRET_MANAGER_ENV_CONFIG is undefined then the container

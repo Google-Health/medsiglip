@@ -68,7 +68,7 @@ ENABLE_LOGGING_FLG = flags.DEFINE_boolean(
 
 _DEBUG_LOGGING_USE_ABSL_LOGGING_FLG = flags.DEFINE_boolean(
     'debug_logging_use_absl_logging',
-    # Confusing double negative is used to enable external env be a postive
+    # Confusing double negative is used to enable external env be a positive
     # statement and override the existing default
     not secret_flag_utils.get_bool_secret_or_env(
         'ENABLE_CLOUD_LOGGING',
@@ -382,8 +382,8 @@ def set_log_trace_key(key: str) -> None:
 # state. This can result in forked modules being executed with invalid global
 # state, e.g., acquired locks that will not release or references to invalid
 # state. The cloud logging library utilizes a background thread transporting
-# logs to cloud. The background threading is not compatiable with forking and
-# will seg-fault (python queue wait). This  can be avoided, by stoping and
+# logs to cloud. The background threading is not compatible with forking and
+# will seg-fault (python queue wait). This  can be avoided, by stopping and
 # the background transport prior to forking and then restarting the transport
 # following the fork.
 os.register_at_fork(

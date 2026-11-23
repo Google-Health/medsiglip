@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Determines the SOPClassUIDs of a DICOM data for modality specfic processing."""
+"""Determines the SOPClassUIDs of a DICOM data for modality specific processing."""
 
 import dataclasses
 import enum

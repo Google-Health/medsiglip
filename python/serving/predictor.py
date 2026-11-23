@@ -116,7 +116,7 @@ _siglip_image_processor: Optional[siglip.SiglipImageProcessor] = None
 def _get_siglip_image_processor() -> siglip.SiglipImageProcessor:
   """Returns a SiglipImageProcessor for the endpoint."""
   # TODO: b/414473350 - Change from flags to config file init. Model parameters
-  # likely very simiar to huggingface defaults with changes for modelinput size.
+  # likely very similar to huggingface defaults with changes for modelinput size.
   # https://huggingface.co/google/med-siglip-448-staging/blob/main/preprocessor_config.json
   global _siglip_image_processor
   if _siglip_image_processor is None:
@@ -575,7 +575,7 @@ class ModelPredictor(
       # call model
       model_output = _call_model(model, img_list, token_list)
       self._model_prediction_count += 1
-      # immediatly yield ml results in the order they were requested.
+      # immediately yield ml results in the order they were requested.
       # buffer results that were processed out of order.
 
       # set model temperature and bias if not set.

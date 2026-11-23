@@ -146,7 +146,7 @@ class DicomGenericData(
   def load_data(self, stack: contextlib.ExitStack) -> None:
     """Method pre-loads data prior to data_iterator.
 
-    Required that context manger must exist for life time of data accesor
+    Required that context manager must exist for life time of data accessor
     iterator after data is loaded.
 
     Args:

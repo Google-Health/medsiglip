@@ -220,8 +220,8 @@ def resize_projected_patch(
 
   Args:
     pc: Patch coordinate defining a region in a projected dim.
-    resize_projected_dim: Paramters which define the projection from sampled
-      region in memory to pc coordiante system.
+    resize_projected_dim: Parameters which define the projection from sampled
+      region in memory to pc coordinate system.
     memory: Pixel data sampled from an image which != projected dim.
 
   Returns:

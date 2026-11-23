@@ -191,7 +191,7 @@ components:
         format: int32
         description: >
           The zero-based index of the desired layer (allows both positive and
-          negative indexing, e.g., -1 for the last layer). Mutually exclusive with an dimention
+          negative indexing, e.g., -1 for the last layer). Mutually exclusive with an dimension
           identifiers ('width' and 'height').
       width:
         type: integer
