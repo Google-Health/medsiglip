@@ -183,7 +183,7 @@ def _call_model(
       model_input, model_output_keys=_MODEL_OUTPUT_KEYS
   )
   model_output = dict(model_output)
-  # Add returned embedding request indexs to output.
+  # Add returned embedding request indexes to output.
   model_output[_IMAGE_EMBEDDING_INDEX] = [img.index for img in img_list]
   model_output[_TEXT_EMBEDDING_INDEX] = [token.index for token in token_list]
   return model_output
@@ -461,7 +461,7 @@ class _InputImageIter(_InputIter[np.ndarray]):
 
 
 class _MlOutputDecoder:
-  """Returns model embedding results matching embedding indexs."""
+  """Returns model embedding results matching embedding indexes."""
 
   def __init__(
       self,

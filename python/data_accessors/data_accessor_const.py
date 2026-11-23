@@ -23,7 +23,7 @@ class InstanceJsonKeys:
   GCS_URI = 'gcs_uri'  # generic gcs
   DICOM_WEB_URI = 'dicomweb_uri'  # generic dicom
   TEXT = 'text'  # generic text
-  BEARER_TOKEN = 'access_credential'  # all imputs
+  BEARER_TOKEN = 'access_credential'  # all inputs
   EXTENSIONS = 'extensions'  # generic dicom
   INSTANCES = 'instances'
   URL = 'url'
