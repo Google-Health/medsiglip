@@ -576,7 +576,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
           ),
           path,
       )
-      # error occures due to instance requesting predictions for an instance
+      # error occurs due to instance requesting predictions for an instance
       # which is not defined in the metadata.
       metadata = ds.json_metadata()
       metadata = metadata.replace(dcm.SOPInstanceUID, '1.42')
@@ -849,16 +849,16 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
       self.assertEqual(np.max(np.abs(rommrgb_result[0] - none_result[0])), 0)
 
   @parameterized.named_parameters([
-      dict(testcase_name='no_profile_transform_defined', exensions={}),
+      dict(testcase_name='no_profile_transform_defined', extensions={}),
       dict(
           testcase_name='none_transform',
-          exensions={
+          extensions={
               _InstanceJsonKeys.TRANSFORM_IMAGING_TO_ICC_PROFILE: 'NONE'
           },
       ),
   ])
   @mock.patch.object(icc_profile_cache, 'get_dicom_icc_profile', autospec=True)
-  def test_dicom_icc_profile_not_called(self, mock_get_profile, exensions):
+  def test_dicom_icc_profile_not_called(self, mock_get_profile, extensions):
     dcm = pydicom.dcmread(
         test_files.testdata_path('multiframe_camelyon_challenge_image.dcm')
     )
@@ -877,7 +877,7 @@ class DicomDigitalPathologyDataTest(parameterized.TestCase):
       instance = data_accessor_definition.DicomWSIImage(
           credential_factory.TokenPassthroughCredentialFactory('mock_token'),
           str(path),
-          exensions,
+          extensions,
           dcm.SOPInstanceUID,
           coordinates,
           [],

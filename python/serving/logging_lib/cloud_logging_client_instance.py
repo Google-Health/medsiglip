@@ -284,7 +284,7 @@ class CloudLoggingClientInstance:
       log_error_level: Error level at which logger will log.
       per_thread_log_signatures: Log signatures reported per thread.
       trace_key: Log key value which contains a trace id value.
-      build_version: Build version to embedd in logs container.
+      build_version: Build version to embed in logs container.
     """
     # lock for log makes access to singleton
     # safe across threads. Logging used in main thread and ack_timeout_mon
@@ -561,7 +561,7 @@ class CloudLoggingClientInstance:
   def _clip_struct_log(
       self, log: MutableMapping[str, Any], max_log_size: int
   ) -> None:
-    """Clip log if structed log exceeds structured log size limits.
+    """Clip log if structured log exceeds structured log size limits.
 
     Clipping logic:
       log size = total sum of key + value sizes of log structure

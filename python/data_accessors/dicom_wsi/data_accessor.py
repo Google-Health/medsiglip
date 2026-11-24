@@ -136,7 +136,7 @@ def _fetch_image_bytes(
 
 
 def _get_load_whole_slide_frame_ratio(extensions: Mapping[str, Any]) -> int:
-  """Ratio of frames in level / requested; at which whole instance prefered."""
+  """Ratio of frames in level / requested; at which whole instance preferred."""
   try:
     return int(
         extensions.get(_InstanceJsonKeys.LOAD_WHOLE_SLIDE_FRAME_RATIO, 10)

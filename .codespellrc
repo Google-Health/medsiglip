@@ -1,0 +1,9 @@
+[codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+# tokenizer.json - tokenizer vocabulary (word pieces, not prose)
+# THIRD_PARTY_LICENSES - verbatim third-party license texts and author names
+skip = .git,.git-meta,.gitignore,.gitattributes,.codespellrc,.*cache,.venv,.tox,.eggs,*.egg-info,__pycache__,tokenizer.json,THIRD_PARTY_LICENSES
+check-hidden = true
+# Ignore embedded images in Jupyter notebooks
+ignore-regex = ^\s*"image/\S+": ".*
+# ignore-words-list =

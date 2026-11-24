@@ -22,7 +22,7 @@ Fetching the ICC Profile from the DICOM store can be expensive if the DICOM
 instance is stored in archival storage tiers.
 
 To speed ICC profile retrieval and reducte the cost, the pathology emebedding
-service can cache and re-use ICC Profiles across requests. ICC profiles
+service can cache and reuse ICC Profiles across requests. ICC profiles
 describe a scanner calibration and are not indicative of patient data.
 
 ICC Profiles bytes are cached bytes in Redis or GCS,
@@ -451,7 +451,7 @@ def get_dicom_icc_profile(
     gcs_cache_path = _get_gcs_cache_path(
         gcs_icc_profile_cache_bucket, icc_profile_hash.decode('utf-8')
     )
-    # try to retireve from GCS.
+    # try to retrieve from GCS.
     icc_profile_bytes = _download_icc_profile(
         settings, gcs_cache_path, redis_host, redis_port, struct_log
     )

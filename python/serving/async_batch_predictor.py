@@ -120,7 +120,7 @@ class AsyncBatchModelPredictor(
           ]
       ],
   ) -> Iterator[np.ndarray]:
-    """Runs model on seqeunce of images in size batches in and returns results."""
+    """Runs model on sequence of images in size batches in and returns results."""
 
   def _get_single_instance_prediction(
       self,
@@ -162,7 +162,7 @@ class AsyncBatchModelPredictor(
     if not requests:
       return iter([])
     if self._thread_pool is None:
-      msg = 'Must be run in context mangaged block.'
+      msg = 'Must be run in context managed block.'
       cloud_logging_client.error(msg)
       raise InternalBugError(msg)
     if len(requests) == 1:
